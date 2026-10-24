@@ -6,8 +6,9 @@ services:
       POSTGRES_DB: portfolio
       POSTGRES_USER: portfolio
       POSTGRES_PASSWORD: portfolio
+    # 15432 on the host: 5432 and 5433 are often taken by a locally installed PostgreSQL.
     ports:
-      - "5432:5432"
+      - "15432:5432"
     volumes:
       - postgres-data:/var/lib/postgresql
 
