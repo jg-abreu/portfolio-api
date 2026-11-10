@@ -1,6 +1,7 @@
 package dev.joaoabreu.portfolioapi.auth;
 
 import java.net.URI;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
@@ -12,9 +13,15 @@ import org.springframework.web.bind.annotation.RestController;
 @RestController
 public class AdminSessionController {
 
+    private final String adminUiUrl;
+
+    public AdminSessionController(@Value("${portfolio.admin.ui-url:/en/admin/}") String adminUiUrl) {
+        this.adminUiUrl = adminUiUrl;
+    }
+
     @GetMapping("/admin")
     ResponseEntity<Void> admin(@AuthenticationPrincipal OAuth2User user) {
-        String destination = user == null ? "/oauth2/authorization/github" : "/api/admin/session";
+        String destination = user == null ? "/oauth2/authorization/github" : adminUiUrl;
         return ResponseEntity.status(HttpStatus.FOUND).location(URI.create(destination)).build();
     }
 

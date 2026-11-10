@@ -101,7 +101,7 @@ class AdminAuthenticationTests {
                 .andExpect(jsonPath("$.githubId").value("265870608"))
                 .andExpect(jsonPath("$.username").value("jg-abreu"));
         mvc.perform(get("/admin").session(attempt.session()))
-                .andExpect(redirectedUrl("/api/admin/session"));
+                .andExpect(redirectedUrl("/en/admin/"));
     }
 
     @Test
