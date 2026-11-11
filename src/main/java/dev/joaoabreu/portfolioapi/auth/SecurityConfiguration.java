@@ -2,6 +2,7 @@ package dev.joaoabreu.portfolioapi.auth;
 
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpMethod;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -50,6 +51,7 @@ public class SecurityConfiguration {
                 .authorizeHttpRequests(auth -> auth
                         .requestMatchers("/admin", "/api/auth/csrf", "/actuator/health",
                                 "/oauth2/authorization/github", "/login/oauth2/code/github").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/projects").permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .anyRequest().denyAll())
                 .requestCache(cache -> cache.disable())
