@@ -89,10 +89,26 @@ class ContactDeliveryTests {
     @Test
     void marksSentOnlyAfterSmtpSucceeds() throws Exception {
         mvc.perform(submit(UUID.randomUUID(), BODY)).andExpect(status().isAccepted());
+        jdbc.sql("UPDATE contact_messages SET next_attempt_at=now()-interval '1 minute'").update();
         worker.deliver();
         assertEquals("sent", deliveryStatus());
         assertEquals(1, attempts());
         assertNotNull(jdbc.sql("SELECT sent_at FROM contact_messages").query(java.time.OffsetDateTime.class).single());
+        verify(notifier).send(any());
+    }
+
+    @Test
+    void waitsForTheScheduledAttemptBeforeCallingSmtp() throws Exception {
+        mvc.perform(submit(UUID.randomUUID(), BODY)).andExpect(status().isAccepted());
+        jdbc.sql("UPDATE contact_messages SET next_attempt_at=now()+interval '1 minute'").update();
+        worker.deliver();
+        assertEquals("pending", deliveryStatus());
+        assertEquals(0, attempts());
+        verifyNoInteractions(notifier);
+        jdbc.sql("UPDATE contact_messages SET next_attempt_at=now()-interval '1 minute'").update();
+        worker.deliver();
+        assertEquals("sent", deliveryStatus());
+        assertEquals(1, attempts());
         verify(notifier).send(any());
     }
 

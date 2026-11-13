@@ -59,3 +59,9 @@ A real cross-tab inbox check exposed an internal Tomcat ERROR dispatch being den
 ContactHttpErrorTests first reproduced expected 409 versus actual 403 using embedded Tomcat, real HTTP/cookies/CSRF and disposable PostgreSQL. After the fix it verifies 409 for stale updates, 404 for missing records, continued authenticated reads, forbidden invalid CSRF/direct /error requests and anonymous private access returning 401. Its authentication fixture exists only in test sources. The complete verify run passed 86 tests and produced the local JAR.
 
 The browser repetition showed correct EN/PT conflict feedback without logout; reopening loaded the new version and allowed a read-state update. A separate real one-minute idle-session check returned to login and removed message data. The normal local timeout was restored to 30 minutes; contact intake, SMTP and retention stayed disabled. No server or production settings changed.
+
+## Test timing follow-up — 2026-11-13
+
+The expanded full suite exposed an intermittent assumption in `marksSentOnlyAfterSmtpSucceeds`: a newly inserted message was treated as immediately due even though PostgreSQL assigns its schedule and the worker compares it to Java time. A temporary 100-repeat probe reproduced 53 failures, each still pending with zero attempts, before any SMTP call. Making only that test fixture explicitly overdue yielded 100 passing repetitions.
+
+The temporary repetition/probe was removed. The original success test now starts with an explicitly overdue row; a separate regression verifies a future pending row is not sent and becomes eligible only after its schedule is moved into the past. Production worker code, polling, leases and SMTP configuration did not change. The final complete suite passed 133 tests. SMTP remained simulated throughout this follow-up.
