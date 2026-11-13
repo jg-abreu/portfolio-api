@@ -13,6 +13,6 @@ All routes require the GitHub ADMIN session. Mutations also require the existing
 
 Mutations return the updated detail; stale versions return 409, missing messages 404 and invalid input 400. The client must use the returned version for its next change.
 
-This stage does not expose contact submission or send email. The public form stays disabled. Provider configuration, spam protection, retention remain separate work before V2 release. Test fixtures use isolated Testcontainers PostgreSQL, not the persistent development database.
+Contact submission and delivery are implemented behind separate disabled-by-default flags; the public form stays disabled. See contact-delivery.md for the enabled contract, protections, retry policy and 90-day retention. Inbox actions remain independent of delivery.
 
 The frontend feat/v2 admin includes the Inbox view in EN/PT, using plain text rendering, explicit read/archive actions and pagination. Real browser validation of this new view is still pending. Backend validation: 74 tests passed on 2026-11-13; the initial repackage failed because the previous local JAR was open, then packaging passed after stopping that local process.

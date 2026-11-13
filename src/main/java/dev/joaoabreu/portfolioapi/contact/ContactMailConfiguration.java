@@ -5,8 +5,10 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.scheduling.annotation.EnableScheduling;
 
 @Configuration(proxyBeanMethods = false)
+@EnableScheduling
 @ConditionalOnProperty(name = "portfolio.contact.mail.enabled", havingValue = "true")
 @EnableConfigurationProperties(ContactMailProperties.class)
 public class ContactMailConfiguration {

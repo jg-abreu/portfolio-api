@@ -55,6 +55,7 @@ public class SecurityConfiguration {
                         .requestMatchers("/admin", "/api/auth/csrf", "/actuator/health",
                                 "/oauth2/authorization/github", "/login/oauth2/code/github").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/projects").permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/contact").permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .anyRequest().denyAll())
                 .requestCache(cache -> cache.disable())
