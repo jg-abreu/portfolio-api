@@ -20,11 +20,13 @@ public class RecommendationService {
     private final JdbcClient jdbc;
     private final ObjectMapper json;
     private final RecommendationImages images;
+    private final GoogleBooksService books;
 
-    public RecommendationService(JdbcClient jdbc, ObjectMapper json, RecommendationImages images) {
+    public RecommendationService(JdbcClient jdbc, ObjectMapper json, RecommendationImages images, GoogleBooksService books) {
         this.jdbc = jdbc;
         this.json = json;
         this.images = images;
+        this.books = books;
     }
 
     public List<Draft> list() {
@@ -71,8 +73,9 @@ public class RecommendationService {
         Draft current = find(id, true);
         checkVersion(current, version);
         Details data = current.data();
-        if (current.status() != Status.DRAFT || !data.en().complete() || !data.pt().complete() || !images.exists(data.imageKey()))
+        if (current.status() != Status.DRAFT || !data.en().complete() || !data.pt().complete() || (!hasBook(data) && !images.exists(data.imageKey())))
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Both translations and an image are required");
+        if (hasBook(data)) books.verify(data.googleBooksId());
         String revision = UUID.randomUUID().toString();
         var publication = new Publication(id, revision, current.version(), data);
         jdbc.sql("""
@@ -122,7 +125,11 @@ public class RecommendationService {
                 json.readValue(row.getString("payload"), Details.class), row.getTimestamp("updated_at").toInstant());
     }
 
+    private boolean hasBook(Details data) { return data.googleBooksId() != null && !data.googleBooksId().isEmpty(); }
+
     private void validate(Details data) {
+        if (hasBook(data) && (data.category() != Category.BOOKS || !data.imageKey().isEmpty()))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Choose either a book cover or an uploaded image");
         if (!data.url().isEmpty()) {
             try {
                 URI uri = URI.create(data.url());

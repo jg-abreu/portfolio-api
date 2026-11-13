@@ -1,6 +1,6 @@
 # Recommendations
 
-Recommendations use PostgreSQL drafts and separately selected public copies. This stage implements the API and image storage; the admin editor and Google Books search are still pending. Gemini is deferred. Nothing in this feature triggers a build or deployment.
+Recommendations use PostgreSQL drafts and separately selected public copies. This stage implements the API and image storage; the frontend admin editor and Google Books search are implemented; real provider validation still needs a local key. Gemini is deferred. Nothing in this feature triggers a build or deployment.
 
 ## HTTP contract
 
@@ -22,7 +22,7 @@ Create and update requests contain `version` and `data`. Data contains `slug`, `
 
 Create uses version 0. Editing and status changes increment the version. Publication and withdrawal requests contain the current `version`. Row locks serialize mutations; stale versions return 409 and cannot overwrite another editor. Duplicate draft or selected slugs also return 409. Missing records return 404.
 
-Selecting a copy requires an active draft, complete EN/PT text and an imported image. It captures a UUID revision, the draft version and a separate JSON copy. Later edits or archiving leave that public copy unchanged. Withdrawal removes the selected copy and its public image access when no other selected recommendation uses the image. It preserves the draft and file.
+Selecting a copy requires an active draft, complete EN/PT text and either an imported image or a verified Google Books cover reference. It captures a UUID revision, the draft version and a separate JSON copy. Later edits or archiving leave that public copy unchanged. Withdrawal removes the selected copy and its public image access when no other selected recommendation uses the image. It preserves the draft and file.
 
 The snapshot matches the static frontend contract and sorts by category, display order and slug. Draft creation is capped at 500 records, including archived drafts. The static frontend downloads selected images during build and does not query this API per visit.
 
@@ -37,3 +37,23 @@ Production requires a persistent directory outside the container layer and backu
 ## Validation
 
 `RecommendationImagesTests` covers JPEG normalization, stable content hashes, deduplication, invalid formats, byte and dimension limits, missing/path-like keys and corrupted stored files. `RecommendationTests` exercises HTTP security/CSRF against disposable PostgreSQL, separate public copies, private images, publication completeness, duplicate slugs, version conflicts, withdrawal and simultaneous edits. No personal recommendations or real covers are seeded.
+
+## Google Books references
+
+`GET /api/admin/books?q=...` returns at most 12 provider results in their original order. `POST /api/admin/books/{volumeId}/selection` verifies a choice and requires CSRF. Both routes require the existing admin session and return no-store responses. Search accepts 2–150 characters, supports title/author/ISBN as plain search terms and runs only when requested. No background indexing or automatic search is performed.
+
+Configure `GOOGLE_BOOKS_API_KEY` (or `portfolio.books.api-key`) only on the backend. An empty key disables provider calls with a generic 503. Restrict the standard key to Books API in the intended Google Cloud project, check its quota, and never store the key in source, chat, notes or screenshots. No billing, paid trial, API enablement or real key creation was performed by this implementation. Local IDE environment variables are an acceptable private development configuration.
+
+The Java HTTP client uses the fixed Google APIs HTTPS endpoint, no redirects, a 3-second connect timeout, 10-second request/response timeout and a 1 MiB bounded body subscriber. A one-second application-wide interval limits repeated calls. Provider 429 is exposed as a retryable rate limit; unavailable/malformed/oversized responses are mapped to a generic 503 without secret-bearing exception details. The key never reaches the frontend.
+
+Draft `data` accepts an optional `googleBooksId`; null/empty means no provider reference and preserves compatibility with older drafts. A reference must match the bounded volume ID format, use category BOOKS and have an empty local `imageKey`. Publication rechecks that the requested edition exists and has a cover, then captures only the reference and the user's own bilingual text. No provider metadata or cover bytes are persisted. Google Books outages prevent selecting a new provider-backed copy but do not affect existing static builds.
+
+The frontend constructs cover and book links from validated IDs and a fixed `books.google.com` origin, displays the official attribution graphic and keeps uploads as a separate option. Referenced covers load directly from Google with browser-controlled caching. This differs from manual images, which remain normalized local files. Google API terms section 5(e) restrict permanent copies and excessive caching; provider content is not imported into the local image store.
+
+References:
+- https://developers.google.com/books/docs/v1/reference/volumes/list
+- https://developers.google.com/books/docs/v1/reference/volumes/get
+- https://developers.google.com/terms
+- https://developers.google.com/books/branding
+
+`GoogleBooksTests` covers bounded input/response handling, original order, fixed-origin URLs, configuration absence, throttling, provider errors and edition verification without network calls or real quota use. `GoogleBooksPublicationTests` verifies session/CSRF protection, reference-only publication and mutually exclusive cover sources with a mocked provider and disposable PostgreSQL. Actual search results, cover availability and account quota still require the user's key and a manual review.

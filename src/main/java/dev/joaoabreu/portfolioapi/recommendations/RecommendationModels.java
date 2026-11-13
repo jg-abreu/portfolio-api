@@ -24,7 +24,8 @@ public final class RecommendationModels {
             @NotNull @Pattern(regexp = "(?:|[0-9a-f]{64}\\.png)") String imageKey,
             @NotNull @Size(max = 1000) String url,
             @Min(0) int displayOrder,
-            @NotNull @Valid Copy en, @NotNull @Valid Copy pt) {}
+            @NotNull @Valid Copy en, @NotNull @Valid Copy pt,
+            @Pattern(regexp = "(?:|[A-Za-z0-9_-]{1,100})") String googleBooksId) {}
     public record Save(@NotNull @Min(0) Long version, @NotNull @Valid Details data) {}
     public record Version(@NotNull @Min(0) Long version) {}
     public record ChangeStatus(@NotNull @Min(0) Long version, @NotNull Status status) {}
