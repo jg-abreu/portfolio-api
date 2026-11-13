@@ -56,7 +56,7 @@ public class SecurityConfiguration {
                         .requestMatchers(AssistantRequestFilter::matches).permitAll()
                         .requestMatchers("/admin", "/api/auth/csrf", "/actuator/health",
                                 "/oauth2/authorization/github", "/login/oauth2/code/github").permitAll()
-                        .requestMatchers(HttpMethod.GET, "/api/projects", "/api/visits", "/api/recommendations", "/api/recommendation-images/*").permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/profile-card.svg", "/api/projects", "/api/visits", "/api/recommendations", "/api/recommendation-images/*").permitAll()
                         .requestMatchers(HttpMethod.POST, "/api/contact", "/api/visits").permitAll()
                         .requestMatchers("/api/admin/**").hasRole("ADMIN")
                         .anyRequest().denyAll())
