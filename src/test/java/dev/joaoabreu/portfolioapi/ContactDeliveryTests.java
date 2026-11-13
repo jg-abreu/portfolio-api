@@ -99,6 +99,7 @@ class ContactDeliveryTests {
     @Test
     void retriesSmtpFailureThenStopsAfterFiveAttempts() throws Exception {
         mvc.perform(submit(UUID.randomUUID(), BODY)).andExpect(status().isAccepted());
+        jdbc.sql("UPDATE contact_messages SET next_attempt_at=now()-interval '1 minute'").update();
         doThrow(new MailSendException("Simulated failure")).when(notifier).send(any());
         for (int attempt = 1; attempt <= 5; attempt++) {
             worker.deliver();
