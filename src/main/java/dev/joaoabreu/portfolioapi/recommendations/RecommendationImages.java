@@ -111,7 +111,9 @@ public class RecommendationImages {
 
     private Path resolve(String key) {
         if (key == null || !key.matches("[0-9a-f]{64}\\.png")) throw missing();
-        return directory.resolve(key);
+        Path path = directory.resolve(key).normalize();
+        if (!path.startsWith(directory) || !directory.equals(path.getParent())) throw missing();
+        return path;
     }
 
     private void ensureDirectory() throws IOException {
