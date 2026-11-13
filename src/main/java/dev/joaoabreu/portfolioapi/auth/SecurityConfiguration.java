@@ -1,5 +1,6 @@
 package dev.joaoabreu.portfolioapi.auth;
 
+import dev.joaoabreu.portfolioapi.assistant.AssistantRequestFilter;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpMethod;
@@ -48,7 +49,9 @@ public class SecurityConfiguration {
         authorizationRequests.setAuthorizationRequestCustomizer(OAuth2AuthorizationRequestCustomizers.withPkce());
 
         http
+                .csrf(csrf -> csrf.ignoringRequestMatchers(AssistantRequestFilter::matches))
                 .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(AssistantRequestFilter::matches).permitAll()
                         .requestMatchers("/admin", "/api/auth/csrf", "/actuator/health",
                                 "/oauth2/authorization/github", "/login/oauth2/code/github").permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/projects").permitAll()
