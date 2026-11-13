@@ -3,6 +3,7 @@ package dev.joaoabreu.portfolioapi.projects;
 import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
+import dev.joaoabreu.portfolioapi.publication.PublicationRequests;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -15,12 +16,14 @@ public class ProjectPublicationService {
     private final ProjectDraftRepository drafts;
     private final ProjectPublicationRepository publications;
     private final ObjectMapper json;
+    private final PublicationRequests requests;
 
     public ProjectPublicationService(ProjectDraftRepository drafts, ProjectPublicationRepository publications,
-            ObjectMapper json) {
+            ObjectMapper json, PublicationRequests requests) {
         this.drafts = drafts;
         this.publications = publications;
         this.json = json;
+        this.requests = requests;
     }
 
     public List<ProjectPublication.PublicationResponse> list() {
@@ -46,7 +49,9 @@ public class ProjectPublicationService {
         var project = new ProjectPublication.PublicProject(id, revision, draft.slug(), draft.repositoryUrl(),
                 draft.liveUrl(), draft.stack(), draft.displayOrder(), draft.en(), draft.pt());
         var publication = new ProjectPublication(id, draft.slug(), revision, version, json.writeValueAsString(project));
-        return publications.saveAndFlush(publication).toResponse();
+        var response = publications.saveAndFlush(publication).toResponse();
+        requests.changed();
+        return response;
     }
 
     @Transactional
@@ -54,6 +59,7 @@ public class ProjectPublicationService {
         find(id, version);
         publications.deleteById(id);
         publications.flush();
+        requests.changed();
     }
 
     private ProjectDraft find(long id, long version) {

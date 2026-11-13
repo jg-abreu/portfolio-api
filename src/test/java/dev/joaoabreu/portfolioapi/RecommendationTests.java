@@ -59,6 +59,7 @@ class RecommendationTests {
 
     @Test
     void selectedCopiesAndImagesStayIndependentOfDraftEditsAndArchive() throws Exception {
+        long before = jdbc.sql("SELECT requested_generation FROM publication_requests").query(Long.class).single();
         mvc.perform(get("/api/recommendation-images/" + key).with(anonymous())).andExpect(status().isNotFound());
         long id = create("sample", true);
         select(id, 0, 200);
@@ -74,6 +75,7 @@ class RecommendationTests {
         mvc.perform(patch("/api/admin/recommendations/" + id + "/status").with(csrf()).contentType(MediaType.APPLICATION_JSON)
                 .content("{\"version\":1,\"status\":\"ARCHIVED\"}")).andExpect(status().isOk());
         select(id, 2, 400);
+        assertEquals(before + 1, jdbc.sql("SELECT requested_generation FROM publication_requests").query(Long.class).single());
         mvc.perform(get("/api/recommendations")).andExpect(jsonPath("$.recommendations.length()").value(1));
         mvc.perform(delete("/api/admin/recommendations/" + id + "/publication").with(csrf()).contentType(MediaType.APPLICATION_JSON)
                 .content("{\"version\":1}")).andExpect(status().isConflict());
@@ -81,6 +83,7 @@ class RecommendationTests {
                 .content("{\"version\":2}")).andExpect(status().isNoContent());
         mvc.perform(get("/api/recommendation-images/" + key).with(anonymous())).andExpect(status().isNotFound());
         mvc.perform(get("/api/admin/recommendations/" + id)).andExpect(status().isOk());
+        assertEquals(before + 2, jdbc.sql("SELECT requested_generation FROM publication_requests").query(Long.class).single());
     }
 
     @Test

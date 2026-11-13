@@ -32,6 +32,7 @@ class ProjectPublicationTests {
     @Autowired WebApplicationContext context;
     @Autowired ObjectMapper json;
     @Autowired ProjectDraftRepository drafts;
+    @Autowired org.springframework.jdbc.core.simple.JdbcClient jdbc;
     MockMvc mvc;
 
     @BeforeEach
@@ -42,6 +43,7 @@ class ProjectPublicationTests {
 
     @Test
     void anonymousReadsOnlySelectedCopiesAndEditingDoesNotChangeThem() throws Exception {
+        long before = jdbc.sql("SELECT requested_generation FROM publication_requests").query(Long.class).single();
         long id = create("sample", true);
         mvc.perform(get("/api/projects").with(anonymous())).andExpect(status().isOk())
                 .andExpect(jsonPath("$.projects.length()").value(0));
@@ -55,7 +57,9 @@ class ProjectPublicationTests {
                 .andExpect(jsonPath("$.projects[0].en.title").value("English title"))
                 .andExpect(jsonPath("$.projects[0].pt.title").value("Portuguese title"))
                 .andExpect(jsonPath("$.projects[0].status").doesNotExist());
+        assertEquals(before + 1, jdbc.sql("SELECT requested_generation FROM publication_requests").query(Long.class).single());
         select(id, 0).andExpect(status().isConflict());
+        assertEquals(before + 1, jdbc.sql("SELECT requested_generation FROM publication_requests").query(Long.class).single());
         select(id, 1).andExpect(status().isOk());
         mvc.perform(get("/api/projects")).andExpect(jsonPath("$.projects[0].slug").value("changed"));
     }

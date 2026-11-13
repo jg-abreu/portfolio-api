@@ -6,6 +6,7 @@ import java.sql.SQLException;
 import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
+import dev.joaoabreu.portfolioapi.publication.PublicationRequests;
 import org.springframework.http.HttpStatus;
 import org.springframework.jdbc.core.simple.JdbcClient;
 import org.springframework.stereotype.Service;
@@ -19,14 +20,16 @@ import static dev.joaoabreu.portfolioapi.recommendations.RecommendationModels.*;
 public class RecommendationService {
     private final JdbcClient jdbc;
     private final ObjectMapper json;
+    private final PublicationRequests requests;
     private final RecommendationImages images;
     private final GoogleBooksService books;
 
-    public RecommendationService(JdbcClient jdbc, ObjectMapper json, RecommendationImages images, GoogleBooksService books) {
+    public RecommendationService(JdbcClient jdbc, ObjectMapper json, RecommendationImages images, GoogleBooksService books, PublicationRequests requests) {
         this.jdbc = jdbc;
         this.json = json;
         this.images = images;
         this.books = books;
+        this.requests = requests;
     }
 
     public List<Draft> list() {
@@ -86,6 +89,7 @@ public class RecommendationService {
                 """)
                 .param("id", id).param("slug", data.slug()).param("revision", revision).param("version", current.version())
                 .param("image", data.imageKey()).param("payload", json.writeValueAsString(publication)).update();
+        requests.changed();
         return new Summary(id, revision, current.version());
     }
 
@@ -93,6 +97,7 @@ public class RecommendationService {
     public void withdraw(long id, long version) {
         checkVersion(find(id, true), version);
         jdbc.sql("DELETE FROM recommendation_publications WHERE recommendation_id=:id").param("id", id).update();
+        requests.changed();
     }
 
     public Snapshot snapshot() {
