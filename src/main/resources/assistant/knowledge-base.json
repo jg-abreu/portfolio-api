@@ -1,0 +1,164 @@
+{
+  "schemaVersion": 1,
+  "knowledgeVersion": "2026-11-12.1",
+  "language": "en",
+  "provenance": "Facts explicitly authorized by João Abreu in the development conversation. Source URLs are approved navigation links, not evidence that each fact appears on the linked page.",
+  "fallbackAnswers": {
+    "pt": "Não tenho essa informação específica na minha base, mas você pode perguntar diretamente ao João pelo LinkedIn disponível no portfólio.",
+    "en": "I don’t have that specific information in my knowledge base, but you can ask João directly through the LinkedIn link available on his portfolio."
+  },
+  "sources": [
+    {
+      "id": "profile",
+      "title": "Profile and career objective",
+      "url": "https://joaoabreu.dev",
+      "facts": [
+        "João Abreu is his public name.",
+        "He is located in Rio de Janeiro, RJ, Brazil.",
+        "He is seeking his first internship in Software Engineering or Back-end Development.",
+        "His main focus is Java and Spring Boot."
+      ]
+    },
+    {
+      "id": "availability",
+      "title": "Internship availability",
+      "url": null,
+      "informationProvidedOn": "2026-11-12",
+      "facts": [
+        "His reported availability is in the morning and afternoon.",
+        "His reported class hours are 18:40 to 22:22.",
+        "He is open to remote, hybrid or on-site opportunities in Rio de Janeiro."
+      ],
+      "limitations": [
+        "The date records when the information was provided; no expiration date was supplied.",
+        "Days of the week, weekly working hours, start date and immediate availability were not supplied."
+      ]
+    },
+    {
+      "id": "education",
+      "title": "Education",
+      "url": null,
+      "facts": [
+        "He is currently pursuing a Bachelor's degree in Computer Science at Universidade Veiga de Almeida (UVA).",
+        "He started the degree in January 2026.",
+        "His expected graduation is at the end of 2029."
+      ]
+    },
+    {
+      "id": "community-and-events",
+      "title": "Community and events",
+      "url": null,
+      "facts": [
+        "He participates in the Papo de Dev RJ community.",
+        "He participated in FIAP Connect Summit 2026 and IEEE Computer Society Brazil Symposium 2026."
+      ],
+      "limitations": [
+        "Event participation does not establish certification, employment or a speaking role."
+      ]
+    },
+    {
+      "id": "technical-knowledge",
+      "title": "Technical knowledge",
+      "url": null,
+      "facts": [
+        "Languages: Java and Python.",
+        "Frameworks and libraries: Spring Boot, JPA/Hibernate and React fundamentals.",
+        "Database knowledge: PostgreSQL and relational modeling.",
+        "Tools: Git, GitHub, LeetHub and Cloudflare.",
+        "Concepts and practices: REST APIs and documented manual testing."
+      ],
+      "limitations": [
+        "No proficiency level is authorized for any technology except React, which is described as fundamentals.",
+        "A project's technology does not by itself establish a proficiency level."
+      ]
+    },
+    {
+      "id": "project-tutoring-management-system",
+      "title": "Tutoring Management System / Sistema de Monitoria",
+      "url": null,
+      "facts": [
+        "It is an academic tutoring management system.",
+        "Its REST API uses Java and Spring Boot.",
+        "Its front-end uses React.",
+        "Its database is PostgreSQL.",
+        "It focuses on relational modeling."
+      ],
+      "limitations": [
+        "Academic tutoring describes the problem domain, not the category of the project.",
+        "Do not classify this project as personal, academic coursework or paid professional work.",
+        "Development stage, completed features beyond the stated facts, measured results and technology versions were not supplied."
+      ]
+    },
+    {
+      "id": "project-inhub",
+      "title": "inHub",
+      "url": null,
+      "facts": [
+        "inHub is a project for the Papo de Dev RJ community.",
+        "João participates as a back-end developer in technical collaboration."
+      ],
+      "limitations": [
+        "This is a distinct project; do not transfer another project's technologies, features or results to it.",
+        "Its detailed stack, current development stage and completed features are not specified.",
+        "Participation does not authorize a claim of employment or paid professional experience."
+      ]
+    },
+    {
+      "id": "project-personal-portfolio",
+      "title": "Personal portfolio",
+      "url": "https://joaoabreu.dev",
+      "facts": [
+        "His personal portfolio is at https://joaoabreu.dev.",
+        "It presents his profile and projects.",
+        "Its front-end uses Astro and TypeScript.",
+        "The virtual assistant is in development and must not be presented as an already published feature."
+      ]
+    },
+    {
+      "id": "study-and-content",
+      "title": "Study and technical content",
+      "url": null,
+      "facts": [
+        "He solves LeetCode exercises daily in Java.",
+        "He versions his solutions on GitHub using LeetHub.",
+        "He creates bilingual technical content on LinkedIn and dev.to."
+      ],
+      "limitations": [
+        "Bilingual content creation does not establish a spoken-language proficiency level.",
+        "Exercise counts, rankings, audience metrics and performance results were not supplied."
+      ]
+    },
+    {
+      "id": "link-portfolio",
+      "title": "Portfolio",
+      "url": "https://joaoabreu.dev",
+      "facts": ["This is his authorized public portfolio link."]
+    },
+    {
+      "id": "link-github",
+      "title": "GitHub",
+      "url": "https://github.com/jg-abreu",
+      "facts": ["This is his authorized public GitHub link."]
+    },
+    {
+      "id": "link-devto",
+      "title": "dev.to",
+      "url": "https://dev.to/joao_abreu",
+      "facts": ["This is his authorized public dev.to link."]
+    },
+    {
+      "id": "link-linkedin",
+      "title": "LinkedIn",
+      "url": "https://www.linkedin.com/in/joão-abreuuu/",
+      "facts": ["This is his authorized public LinkedIn contact link."]
+    }
+  ],
+  "informationNotProvided": [
+    "Salary expectations.",
+    "Available start date.",
+    "Paid professional experience.",
+    "Technology proficiency levels beyond the explicitly stated React fundamentals.",
+    "An authorized email address."
+  ],
+  "missingInformationPolicy": "Missing information is unknown, not evidence that a qualification, experience or fact does not exist. Do not infer negative claims from omissions."
+}
