@@ -36,3 +36,5 @@ build/
 .env.*
 !.env.production.example
 portfolio-api.jar
+
+/data/recommendations/
