@@ -90,12 +90,12 @@ Other routes are denied by default. Rate limits for contact and assistant are pr
 .\mvnw.cmd test
 ```
 
-The complete suite passed **131 tests** on 2026-11-13, with zero failures, errors or skips. PostgreSQL integration tests use disposable Testcontainers databases; SMTP, Gemini, Books and card-provider responses are simulated in automated tests. A passing suite does not certify live provider credentials, production routing or model factual accuracy.
+The complete suite passed **133 tests** on 2026-11-13, with zero failures, errors or skips. PostgreSQL integration tests use disposable Testcontainers databases; SMTP, Gemini, Books and card-provider responses are simulated in automated tests. A passing suite does not certify live provider credentials, production routing or model factual accuracy.
 
 Tests cover security/session/CSRF, HTTP limits, concurrent counter updates, stale draft versions, separate publication copies, image normalization/integrity, outbox leases/retries, scheduling/retention and SVG cache/fallback behavior. Separate local checks confirmed real SMTP delivery to both configured recipients and real Google Books search; their exact scope is recorded in the module documentation.
 
 ## Operations and remaining release work
 
-See [PRODUCTION.md](PRODUCTION.md) for the existing deployment guide. Production needs persistent PostgreSQL and recommendation image storage, private environment configuration, trusted proxy validation, external backups and a proven restore procedure. A database/container volume alone is not a backup. Builds and tests should run outside the small serving VM.
+See [PRODUCTION.md](PRODUCTION.md) for the existing deployment guide and [backup/restore](docs/backup-restore.md) for the isolated rehearsal and manual acceptance checklist. Production needs persistent PostgreSQL and recommendation image storage, private environment configuration, trusted proxy validation, external backups and a proven restore procedure. A database/container volume alone is not a backup. Builds and tests should run outside the small serving VM.
 
 Still pending: receiving-workflow configuration and live automatic-publication validation, real card-provider verification and profile integration, real assistant answer/source audit, local two-instance load testing, security scanning setup, backup/restore validation and authorized joint V2 release. No load test should target the live site. Infrastructure changes and the release cutover follow João's manual workflow; this README does not perform or authorize deployment.
