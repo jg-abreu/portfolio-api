@@ -34,4 +34,12 @@ João selected 90 days. When independently enabled, the hourly cleanup removes r
 
 ## Validation
 
-2026-11-13: 84 backend tests passed, including persistence before receipt, retry deduplication, input/CSRF/body/rate protection, SMTP success/failure, five attempts, expired versus active leases and retention. SMTP was simulated; no real email was sent. Real browser checks of the newly enabled form/inbox and real SMTP delivery remain pending.
+2026-11-13: 84 backend tests passed, including persistence before receipt, retry deduplication, input/CSRF/body/rate protection, SMTP success/failure, five attempts, expired versus active leases and retention. SMTP was simulated; no real email was sent. Integrated local browser and real SMTP worker checks were completed later on the same date; see the section below for scope and remaining release checks.
+
+## Integrated local verification — 2026-11-13
+
+An isolated database portfolio_e2e_20261113_0110 was created without modifying the habitual development database. The real PT browser form persisted exactly one synthetic row and reset only after acknowledgement. The real GitHub admin session displayed it in the EN/PT inbox; read, archive and restore actions updated only inbox state (version 3), leaving delivery pending with zero attempts.
+
+The real ContactDeliveryWorker was explicitly invoked once against that isolated queue using private local SMTP settings. It marked the row sent with one attempt and a sent timestamp. The dev inbox was checked through Gmail and personal receipt was confirmed by João. The autonomous scheduler was not enabled, so this does not validate its timing.
+
+Logout returned the browser to login even after reload, and a separate anonymous inbox request returned 401. All runtime intake, delivery and retention flags were turned off afterward, as was the frontend form flag. The synthetic database was preserved for review. No server, main branch, repository credentials or production data were changed. Phone layout, browser failure cases and scheduler timing remain release checks.
