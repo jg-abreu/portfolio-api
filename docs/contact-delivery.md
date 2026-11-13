@@ -51,3 +51,11 @@ ContactSchedulerTests passed with a disposable PostgreSQL Testcontainer and mock
 The browser follow-up checked the contact form and inbox at 360 CSS pixels in EN/PT and light/dark appearances. Disabling intake produced localized error feedback while retaining all fields in both languages. Enabling only local intake allowed the EN mobile form to persist a second synthetic row and clear after acknowledgement. Row 2 remains pending with zero attempts in portfolio_e2e_20261113_0110; row 1 remains sent with one attempt. Delivery and retention were never enabled in this follow-up. Inspect this synthetic queue before enabling a worker against it.
 
 Mobile logout returned to login, device emulation was closed, and local intake and frontend flags were restored to false. No additional email, production configuration change or deployment occurred. Session expiry in an open inbox, cross-tab conflicts, a disconnected network and deployment proxy/retention/backup readiness remain separate release checks.
+
+## Preserving HTTP errors — 2026-11-13
+
+A real cross-tab inbox check exposed an internal Tomcat ERROR dispatch being denied by the route security rules. ResponseStatusException(CONFLICT) became HTTP 403, so the browser treated a stale version as lost authorization. SecurityConfiguration now permits DispatcherType.ERROR only; ordinary requests retain the same ADMIN, CSRF and deny-by-default rules.
+
+ContactHttpErrorTests first reproduced expected 409 versus actual 403 using embedded Tomcat, real HTTP/cookies/CSRF and disposable PostgreSQL. After the fix it verifies 409 for stale updates, 404 for missing records, continued authenticated reads, forbidden invalid CSRF/direct /error requests and anonymous private access returning 401. Its authentication fixture exists only in test sources. The complete verify run passed 86 tests and produced the local JAR.
+
+The browser repetition showed correct EN/PT conflict feedback without logout; reopening loaded the new version and allowed a read-state update. A separate real one-minute idle-session check returned to login and removed message data. The normal local timeout was restored to 30 minutes; contact intake, SMTP and retention stayed disabled. No server or production settings changed.

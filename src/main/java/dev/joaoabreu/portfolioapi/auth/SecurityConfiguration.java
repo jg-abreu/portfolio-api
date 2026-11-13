@@ -1,6 +1,7 @@
 package dev.joaoabreu.portfolioapi.auth;
 
 import dev.joaoabreu.portfolioapi.assistant.AssistantRequestFilter;
+import jakarta.servlet.DispatcherType;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpMethod;
@@ -51,6 +52,7 @@ public class SecurityConfiguration {
         http
                 .csrf(csrf -> csrf.ignoringRequestMatchers(AssistantRequestFilter::matches))
                 .authorizeHttpRequests(auth -> auth
+                        .dispatcherTypeMatchers(DispatcherType.ERROR).permitAll()
                         .requestMatchers(AssistantRequestFilter::matches).permitAll()
                         .requestMatchers("/admin", "/api/auth/csrf", "/actuator/health",
                                 "/oauth2/authorization/github", "/login/oauth2/code/github").permitAll()
