@@ -94,6 +94,8 @@ The complete suite passed **133 tests** on 2026-11-13, with zero failures, error
 
 Tests cover security/session/CSRF, HTTP limits, concurrent counter updates, stale draft versions, separate publication copies, image normalization/integrity, outbox leases/retries, scheduling/retention and SVG cache/fallback behavior. Separate local checks confirmed real SMTP delivery to both configured recipients and real Google Books search; their exact scope is recorded in the module documentation.
 
+See [Java dependency monitoring](docs/dependency-security.md) for the prepared Dependabot configuration and the distinction between version checks and completed security scans.
+
 ## Operations and remaining release work
 
 See [PRODUCTION.md](PRODUCTION.md) for the existing deployment guide and [backup/restore](docs/backup-restore.md) for the isolated rehearsal and manual acceptance checklist. Production needs persistent PostgreSQL and recommendation image storage, private environment configuration, trusted proxy validation, external backups and a proven restore procedure. A database/container volume alone is not a backup. Builds and tests should run outside the small serving VM.
