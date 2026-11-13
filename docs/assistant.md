@@ -93,3 +93,22 @@ The user subsequently reported successful manual checks of a technologies answer
 5. Before any future authorized V2 publication, verify trusted proxy/client-address handling and the intended release target. V1 and the current published site remain outside this feature's scope.
 
 The temporary simulation server was stopped and port 4322 was confirmed without a listener. Its fixtures are not part of normal application behavior. Astro on port 4321 and development PostgreSQL on port 15432 were preserved. The API was subsequently started locally on port 8080. Publication has not been performed.
+
+## Mobile regression review — 2026-11-13
+
+The current V2 static build was reviewed in Chrome responsive emulation at 360 × 653 CSS pixels, in the dark theme. An isolated Python HTTP server at `127.0.0.1:4322` served `dist` and answered only synthetic assistant requests. It did not proxy to Spring Boot, call Gemini, use an AI key, send mail or modify the normal API on 8080 or Astro on 4321.
+
+Verified in Portuguese:
+- The dialog, textarea, submit control and contact link stayed inside the phone viewport.
+- Submitting a long synthetic answer brought the response and its sources into view; the previous compact-window scroll issue did not reproduce.
+- A safe relative source was linked. A source title containing HTML appeared as literal text and its JavaScript URL was not linked or executed.
+- Escape closed the dialog and Enter reopened it; the question field remained usable.
+- A synthetic 503 showed the localized unavailable message in view, preserving the question and allowing another attempt.
+- A synthetic 429 with Retry-After 3 showed localized recovery guidance and disabled submission. After the interval, the button enabled automatically and another request succeeded.
+- An insufficient-knowledge display fixture showed no sources. Its text was synthetic UI content, not an audit of the backend's exact approved fallback wording.
+
+Verified in English: the dialog and controls fit the same phone viewport, and a synthetic insufficient-knowledge response was displayed with the knowledge version, no sources and the contact link in view. Portuguese long-answer, failure and cooldown cases were not repeated in English during this review. These are emulated-browser checks, not physical-device or full accessibility certification. No new functional change was needed and no unrelated test suite was rerun for this documentation-only stage.
+
+The simulator was stopped after review. Expected 503 and 429 entries in DevTools came from deliberate fixtures. Public recommendations remained empty through the normal Astro/API route. Existing real GitHub OAuth checks were completed during the recommendation/inbox workflow; the earlier OAuth-pending entry above is historical.
+
+Still pending: real PT/EN model-answer/source fidelity audit, exact live fallback verification, light-theme and broader keyboard/accessibility review, trusted production proxy validation and authorized V2 release preparation. No main merge, production deployment or real Gemini query occurred in this stage.
