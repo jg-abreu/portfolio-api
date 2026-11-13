@@ -112,3 +112,24 @@ Verified in English: the dialog and controls fit the same phone viewport, and a 
 The simulator was stopped after review. Expected 503 and 429 entries in DevTools came from deliberate fixtures. Public recommendations remained empty through the normal Astro/API route. Existing real GitHub OAuth checks were completed during the recommendation/inbox workflow; the earlier OAuth-pending entry above is historical.
 
 Still pending: real PT/EN model-answer/source fidelity audit, exact live fallback verification, light-theme and broader keyboard/accessibility review, trusted production proxy validation and authorized V2 release preparation. No main merge, production deployment or real Gemini query occurred in this stage.
+
+## Live provider and HTTP audit — 2026-11-13
+
+João configured the existing Gemini key in the Windows environment. It was read privately into child process environments, not printed, committed or placed in browser variables. AI Studio showed the existing development project/key on the Free tier; no key or billing setting was created or changed by this audit.
+
+A one-shot harness used the actual AssistantResources, AssistantService and GeminiAssistantModel with gemini-3.1-flash-lite and knowledge version 2026-11-12.1. Four real requests passed:
+
+| Case | Result | Source/fallback review |
+| --- | --- | --- |
+| Technologies, PT | answered | technical-knowledge; approved languages, frameworks, database/tools and practices only |
+| Technologies, EN | answered | same authorized source/facts; no invented proficiency levels |
+| Salary expectation, PT | insufficient_knowledge | exact approved Portuguese fallback; empty sources |
+| Salary expectation, EN | insufficient_knowledge | exact approved English fallback; empty sources |
+
+Answers were read and compared with the approved facts, including React fundamentals rather than an invented proficiency. The first call took about 21.6 seconds, others about 1.2–2.2 seconds: individual observations, not a benchmark/SLA.
+
+A separate Spring process used current compiled classes on loopback 8081, a new isolated database and Astro proxy 4324. Two real HTTP requests passed: technologies PT with the approved source and unknown salary EN with exact fallback/no sources. Both returned 200 and Cache-Control: no-store with expected locale/version. Source IDs/titles/URLs matched the knowledge base. Empty input returned 400 and anonymous admin access 401. This covers proxy → HTTP controller/security → service → real provider, not a repeated browser UI audit. Total live calls: six, without conversation history or contact data.
+
+No live rate limit, outage or timeout was induced; simulated tests remain their evidence. This sample does not guarantee general model factual accuracy. Broader UI approval, deployment quotas/proxy settings and authorized release remain pending.
+
+The isolated API and temporary Astro were stopped, synthetic database retained. The habitual API was deliberately repackaged/restarted with the key, 30-minute session and existing isolated review database. Its JAR contains Guava 33.7.2-android. Contact intake, SMTP, retention, visits, dispatch and profile refresh stay disabled. Health was UP, anonymous admin 401 and habitual site 200. No VM/main/deploy/email change occurred. Raw reports remain in ignored staging and contain authorized profile questions/answers, not credentials.
