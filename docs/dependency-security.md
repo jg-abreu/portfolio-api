@@ -1,5 +1,26 @@
 # Java dependency monitoring
 
+## Resolved dependency advisory check — 2026-11-13
+
+Maven Dependency Plugin 3.10.0 generated the resolved dependency tree, including test dependencies. An explicit OSV batch query checked 206 distinct Maven name/version pairs. The first result identified `com.google.guava:guava:33.4.0-android`, pulled through `google-genai:2.2.0` → `google-auth-library-oauth2-http:1.33.0`.
+
+The vendor's [GHSA-xxph-c9ww-hj94 / CVE-2026-102554](https://github.com/google/guava/security/advisories/GHSA-xxph-c9ww-hj94) concerns excessive memory allocation during native Java deserialization. A targeted source search found no application `ObjectInputStream`/`readObject` entry point; this does not prove that every framework or runtime path is unreachable. No exploit or out-of-memory payload was run.
+
+Dependency management now selects `33.7.2-android`, retaining the SDK's existing variant and using the [vendor's patched release](https://github.com/google/guava/releases/tag/v33.7.2). The regenerated tree confirmed this exact version. All 133 API tests passed with zero failures/errors/skips. A second complete query checked 206 pairs and returned zero matching advisories at that time.
+
+These are known-advisory matches, not source analysis, reachability analysis or a clean CodeQL result. Build-plugin dependencies, JDK, operating system and container images are outside this tree. Provider responses in automated tests remain simulated; real Gemini verification is pending. The serving local JAR/process was not replaced in this stage; no VM or production change was made.
+
+### Repeat locally
+
+From the API repository, with Java 21 configured:
+
+```powershell
+.\mvnw.cmd -B org.apache.maven.plugins:maven-dependency-plugin:3.10.0:tree '-DoutputType=json' '-DoutputFile=target/dependency-tree-security.json'
+python scripts/audit-maven-osv.py
+```
+
+Generate the tree successfully before querying it. Python uses only its standard library. The script sends public Maven names/versions to `api.osv.dev`, handles batch pagination and writes the timestamp, tree SHA-256 and matching IDs into ignored `target/dependency-osv-security.json`. It exits nonzero for findings or query failures; no secrets or source code are submitted. The report is a dated observation and should be regenerated after dependency changes. See [OSV batch API](https://google.github.io/osv.dev/post-v1-querybatch/) and [Maven tree format](https://maven.apache.org/plugins/maven-dependency-plugin/examples/tree-mojo.html).
+
 ## Prepared configuration — 2026-11-13
 
 `.github/dependabot.yml` prepares weekly Maven version checks for the root `pom.xml`, targeting `feat/v2`. Minor/patch updates are grouped, major updates remain separate and at most three version-update PRs may be open. No automatic merge is configured. Spring Boot dependency management remains unchanged; each proposed update needs compatibility review and the applicable build/tests.
@@ -8,6 +29,6 @@ The file currently exists only on `feat/v2`. GitHub reads Dependabot configurati
 
 `target-branch` applies to version updates. Security-update PRs use the default branch and separate repository settings; those settings have not been changed. A PR limit is not a vulnerability or spending limit.
 
-No Java advisory scan was run in this stage, no dependency version changed and no clean vulnerability result is claimed. The frontend npm audit does not cover Maven artifacts. CodeQL/source scanning, Java advisory results and review of any findings remain release work. The existing 133-test result is behavioral evidence recorded elsewhere, not a security scan.
+The initial monitoring-preparation stage did not scan Java dependencies. The later resolved-dependency check and Guava remediation are recorded above. The frontend npm audit does not cover Maven artifacts. CodeQL/source scanning, activation of monitoring and actual GitHub scan results remain pending. Passing behavioral tests alone is not a security scan.
 
 References: [configuration location](https://github.com/github/docs/blob/main/content/code-security/concepts/supply-chain-security/about-the-dependabot-yml-file.md), [options including Maven](https://docs.github.com/en/code-security/reference/supply-chain-security/dependabot-options-reference), [version and security update branches](https://docs.github.com/en/code-security/tutorials/secure-your-dependencies/customizing-dependabot-prs).
