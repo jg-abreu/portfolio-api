@@ -14,7 +14,7 @@ Dispatch is at least once: an interrupted connection or process crash after GitH
 
 ## Infrastructure handoff: not connected or enabled
 
-The implementation sends only to `jg-abreu/portfolio`, workflow `publication-v2.yml`, ref `feat/v2`. This deliberate V2 boundary excludes the existing production `deploy.yml`. The target is fixed in code; the approved final release target needs a reviewed change before ordinary main-based production publication. No workflow, secret, server setting, main commit or deployment was created by this stage.
+The worker dispatches the site's existing `deploy.yml` on `main` (`POST /repos/jg-abreu/portfolio/actions/workflows/deploy.yml/dispatches`, ref `main`). That workflow already accepts `workflow_dispatch`, builds from the published API data, fails before replacing the served release when a source is unavailable, and serializes runs with `concurrency: deploy`. Enable it with `PUBLICATION_ENABLED=true` and a fine-grained `PUBLICATION_GITHUB_TOKEN` limited to `jg-abreu/portfolio` with Actions read and write; do not reuse the profile-card token or the OAuth secret.
 
 GitHub requires a workflow with `workflow_dispatch`, and its definition must be present on the default branch to accept manual events. Do not bootstrap that file onto main during V2 development: pushing main also activates the existing production deployment. Therefore a live dispatch test is deferred until the explicit release plan permits registering the receiving workflow. A missing workflow returns an error and leaves the request queued; do not enable the dispatcher to repeatedly test that condition.
 
