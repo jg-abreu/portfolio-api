@@ -8,10 +8,10 @@ class GitHubWorkflowTests {
     @Test
     void sendsOnlyTheDedicatedV2WorkflowAndRefWithServerSideAuthentication() throws Exception {
         var workflow = new GitHubWorkflow("synthetic-token", request -> {
-            assertEquals("https://api.github.com/repos/jg-abreu/portfolio/actions/workflows/publication-v2.yml/dispatches", request.uri().toString());
+            assertEquals("https://api.github.com/repos/jg-abreu/portfolio/actions/workflows/deploy.yml/dispatches", request.uri().toString());
             assertEquals("POST", request.method());
             assertEquals("Bearer synthetic-token", request.headers().firstValue("Authorization").orElseThrow());
-            assertEquals("{\"ref\":\"feat/v2\"}", GitHubWorkflow.BODY);
+            assertEquals("{\"ref\":\"main\"}", GitHubWorkflow.BODY);
             return 204;
         });
         workflow.dispatch();

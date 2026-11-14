@@ -10,8 +10,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
 
 public class GitHubWorkflow {
-    static final URI TARGET = URI.create("https://api.github.com/repos/jg-abreu/portfolio/actions/workflows/publication-v2.yml/dispatches");
-    static final String BODY = "{\"ref\":\"feat/v2\"}";
+    static final URI TARGET = URI.create("https://api.github.com/repos/jg-abreu/portfolio/actions/workflows/deploy.yml/dispatches");
+    static final String BODY = "{\"ref\":\"main\"}";
     private final String token;
     private final Transport transport;
 
