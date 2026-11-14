@@ -29,7 +29,7 @@ class BackupRestoreTests {
         try (var source = database("backup_source"); var target = database("backup_restored")) {
             source.start(); target.start();
             var migration = flyway(source);
-            assertEquals(9, migration.migrate().migrationsExecuted);
+            assertEquals(10, migration.migrate().migrationsExecuted);
 
             Path liveImages = temporary.resolve("source-images");
             var images = new RecommendationImages(liveImages.toString());

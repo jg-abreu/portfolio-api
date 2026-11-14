@@ -6,6 +6,7 @@ import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
 import jakarta.validation.constraints.Size;
+import java.util.List;
 
 public record ProjectDraftRequest(
         @Min(0) long version,
@@ -16,4 +17,18 @@ public record ProjectDraftRequest(
         @NotNull @Size(max = 1000) String stack,
         @Min(0) int displayOrder,
         @NotNull @Valid ProjectCopy.CopyRequest en,
-        @NotNull @Valid ProjectCopy.CopyRequest pt) {}
+        @NotNull @Valid ProjectCopy.CopyRequest pt,
+        ProjectDraft.Role role,
+        Boolean inProgress,
+        @Pattern(regexp = "(?:|[0-9a-f]{64}\\.png)") String coverKey,
+        @Size(max = 6) List<@NotNull @Valid Profile> profiles) {
+
+    public ProjectDraft.Role roleOrDefault() { return role == null ? ProjectDraft.Role.SECONDARY : role; }
+    public boolean inProgressOrDefault() { return Boolean.TRUE.equals(inProgress); }
+    public String coverKeyOrEmpty() { return coverKey == null ? "" : coverKey; }
+    public List<Profile> profilesOrEmpty() { return profiles == null ? List.of() : List.copyOf(profiles); }
+
+    public record Profile(
+            @NotBlank @Size(max = 40) String label,
+            @NotBlank @Size(max = 300) @Pattern(regexp = "https://[^\\s]+") String url) {}
+}

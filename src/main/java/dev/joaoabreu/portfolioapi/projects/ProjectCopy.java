@@ -13,6 +13,7 @@ public class ProjectCopy {
     private String decisions;
     private String result;
     private String body;
+    private String coverAlt;
 
     protected ProjectCopy() {}
 
@@ -23,10 +24,11 @@ public class ProjectCopy {
         decisions = copy.decisions();
         result = copy.result();
         body = copy.body();
+        coverAlt = copy.coverAlt() == null ? "" : copy.coverAlt().strip();
     }
 
     public CopyRequest toResponse() {
-        return new CopyRequest(title, tagline, problem, decisions, result, body);
+        return new CopyRequest(title, tagline, problem, decisions, result, body, coverAlt == null ? "" : coverAlt);
     }
 
     public record CopyRequest(
@@ -35,5 +37,6 @@ public class ProjectCopy {
             @NotNull @Size(max = 5000) String problem,
             @NotNull @Size(max = 10000) String decisions,
             @NotNull @Size(max = 5000) String result,
-            @NotNull @Size(max = 50000) String body) {}
+            @NotNull @Size(max = 50000) String body,
+            @Size(max = 300) String coverAlt) {}
 }

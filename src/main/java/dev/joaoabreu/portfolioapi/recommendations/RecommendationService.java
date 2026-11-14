@@ -114,7 +114,7 @@ public class RecommendationService {
     }
 
     public byte[] publicImage(String key) {
-        if (key == null || !key.matches("[0-9a-f]{64}\\.png") || jdbc.sql("SELECT COUNT(*) FROM recommendation_publications WHERE image_key=:key")
+        if (key == null || !key.matches("[0-9a-f]{64}\\.png") || jdbc.sql("SELECT (SELECT COUNT(*) FROM recommendation_publications WHERE image_key=:key) + (SELECT COUNT(*) FROM project_publications WHERE cover_key=:key)")
                 .param("key", key).query(Long.class).single() == 0)
             throw new ResponseStatusException(HttpStatus.NOT_FOUND);
         return images.read(key);

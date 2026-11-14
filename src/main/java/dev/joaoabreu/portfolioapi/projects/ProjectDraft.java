@@ -4,6 +4,8 @@ import java.time.Instant;
 import jakarta.persistence.AttributeOverride;
 import jakarta.persistence.AttributeOverrides;
 import jakarta.persistence.Column;
+import jakarta.persistence.Convert;
+import java.util.List;
 import jakarta.persistence.Embedded;
 import jakarta.persistence.Entity;
 import jakarta.persistence.EnumType;
@@ -36,7 +38,8 @@ public class ProjectDraft {
             @AttributeOverride(name = "problem", column = @Column(name = "en_problem")),
             @AttributeOverride(name = "decisions", column = @Column(name = "en_decisions")),
             @AttributeOverride(name = "result", column = @Column(name = "en_result")),
-            @AttributeOverride(name = "body", column = @Column(name = "en_body"))
+            @AttributeOverride(name = "body", column = @Column(name = "en_body")),
+            @AttributeOverride(name = "coverAlt", column = @Column(name = "en_cover_alt"))
     })
     private ProjectCopy en;
 
@@ -47,9 +50,16 @@ public class ProjectDraft {
             @AttributeOverride(name = "problem", column = @Column(name = "pt_problem")),
             @AttributeOverride(name = "decisions", column = @Column(name = "pt_decisions")),
             @AttributeOverride(name = "result", column = @Column(name = "pt_result")),
-            @AttributeOverride(name = "body", column = @Column(name = "pt_body"))
+            @AttributeOverride(name = "body", column = @Column(name = "pt_body")),
+            @AttributeOverride(name = "coverAlt", column = @Column(name = "pt_cover_alt"))
     })
     private ProjectCopy pt;
+    @Enumerated(EnumType.STRING)
+    private Role role = Role.SECONDARY;
+    private boolean inProgress;
+    private String coverKey = "";
+    @Convert(converter = ProjectProfilesConverter.class)
+    private List<ProjectDraftRequest.Profile> profiles = List.of();
     private Instant createdAt;
     private Instant updatedAt;
 
@@ -69,6 +79,10 @@ public class ProjectDraft {
         displayOrder = request.displayOrder();
         en = new ProjectCopy(request.en());
         pt = new ProjectCopy(request.pt());
+        role = request.roleOrDefault();
+        inProgress = request.inProgressOrDefault();
+        coverKey = request.coverKeyOrEmpty();
+        profiles = request.profilesOrEmpty();
         updatedAt = Instant.now();
     }
 
@@ -81,12 +95,14 @@ public class ProjectDraft {
 
     public DraftResponse toResponse() {
         return new DraftResponse(id, version, slug, repositoryUrl, liveUrl, stack, displayOrder,
-                status, en.toResponse(), pt.toResponse(), createdAt, updatedAt);
+                status, en.toResponse(), pt.toResponse(), role, inProgress, coverKey, profiles, createdAt, updatedAt);
     }
 
     public enum Status { DRAFT, ARCHIVED }
+    public enum Role { FEATURED, SECONDARY, SIGNAL }
 
     public record DraftResponse(Long id, long version, String slug, String repositoryUrl,
             String liveUrl, String stack, int displayOrder, Status status,
-            ProjectCopy.CopyRequest en, ProjectCopy.CopyRequest pt, Instant createdAt, Instant updatedAt) {}
+            ProjectCopy.CopyRequest en, ProjectCopy.CopyRequest pt, Role role, boolean inProgress, String coverKey,
+            List<ProjectDraftRequest.Profile> profiles, Instant createdAt, Instant updatedAt) {}
 }
