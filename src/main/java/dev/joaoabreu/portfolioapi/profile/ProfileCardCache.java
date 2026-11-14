@@ -33,27 +33,58 @@ public class ProfileCardCache {
         String repo = data == null ? "Unavailable" : data.latestRepository() == null ? "No public repository" : data.latestRepository();
         String status = fetchedAt == null ? "GitHub data not loaded" : "GitHub snapshot: " + fetchedAt.toString();
         String svg = """
-                <svg xmlns="http://www.w3.org/2000/svg" width="900" height="380" viewBox="0 0 900 380" role="img" aria-labelledby="title desc">
+                <svg xmlns="http://www.w3.org/2000/svg" width="900" height="720" viewBox="0 0 900 720" role="img" aria-labelledby="title desc">
                   <title id="title">João Abreu — Back-end Developer</title>
-                  <desc id="desc">Java and Spring Boot developer, Computer Science at UVA. Open to internships.</desc>
-                  <defs><linearGradient id="blue"><stop stop-color="#2563eb"/><stop offset="1" stop-color="#60a5fa"/></linearGradient></defs>
-                  <rect x="1" y="1" width="898" height="378" rx="24" fill="#0f172a" stroke="#334155"/>
-                  <circle cx="810" cy="70" r="95" fill="#2563eb" opacity=".12"/>
-                  <rect x="32" y="32" width="64" height="64" rx="16" fill="url(#blue)"/>
-                  <g font-family="Arial, sans-serif" fill="#f8fafc">
-                    <text x="64" y="73" text-anchor="middle" font-size="24" font-weight="700">JA</text>
-                    <text x="116" y="58" font-size="28" font-weight="700">João Abreu</text>
-                    <text x="116" y="86" font-size="17" fill="#cbd5e1">Back-end Developer · Java &amp; Spring Boot</text>
-                    <text x="32" y="143" font-size="14" fill="#93c5fd">CONTRIBUTIONS · LAST YEAR</text>
-                    <text x="32" y="180" font-size="30" font-weight="700">%s</text>
-                    <text x="350" y="143" font-size="14" fill="#93c5fd">LATEST PUBLIC REPOSITORY</text>
-                    <text x="350" y="178" font-size="18">%s</text>
-                    <path d="M32 205h836" stroke="#334155"/>
-                    <text x="32" y="239" font-size="17">Java · Spring Boot · PostgreSQL · Docker · Git</text>
-                    <text x="32" y="271" font-size="16" fill="#cbd5e1">Computer Science · UVA</text>
-                    <text x="32" y="303" font-size="16" fill="#cbd5e1">Currently: inHub · Open to internships</text>
-                    <text x="32" y="349" font-size="12" fill="#94a3b8">%s</text>
-                    <text x="868" y="349" text-anchor="end" font-size="14" fill="#93c5fd">joaoabreu.dev</text>
+                  <desc id="desc">Java and Spring Boot developer, Computer Science at UVA. Open to internships. Public GitHub snapshot.</desc>
+                  <rect x="1" y="1" width="898" height="718" rx="18" fill="#0a0a0a" stroke="#292929"/>
+                  <g font-family="Arial, sans-serif">
+                    <circle cx="80" cy="80" r="39" fill="#111a2b" stroke="#3b82f6" stroke-width="2"/>
+                    <text x="80" y="89" text-anchor="middle" font-size="25" font-weight="700" fill="#93c5fd">JA</text>
+                    <text x="142" y="76" font-size="32" font-weight="700" fill="#fafafa">João Abreu</text>
+                    <text x="142" y="104" font-size="17" fill="#b0b0b0">Building back-end systems with Java &amp; Spring Boot.</text>
+                    <g fill="#171717" stroke="#292929">
+                      <rect x="40" y="150" width="400" height="120" rx="12"/>
+                      <rect x="460" y="150" width="400" height="120" rx="12"/>
+                      <rect x="40" y="290" width="820" height="116" rx="12"/>
+                      <rect x="40" y="426" width="400" height="218" rx="12"/>
+                      <rect x="460" y="426" width="400" height="100" rx="12"/>
+                      <rect x="460" y="546" width="400" height="98" rx="12"/>
+                    </g>
+                    <g fill="#b0b0b0" font-size="12" font-weight="700" letter-spacing="1">
+                      <text x="62" y="184">CONTRIBUTIONS · LAST YEAR</text>
+                      <text x="482" y="184">LATEST PUBLIC REPOSITORY</text>
+                      <text x="62" y="323">TECH STACK</text>
+                      <text x="62" y="459">EDUCATION &amp; PROJECTS</text>
+                      <text x="482" y="459">CURRENT FOCUS</text>
+                      <text x="482" y="579">OPEN TO OPPORTUNITIES</text>
+                    </g>
+                    <text x="62" y="235" font-size="36" font-weight="700" fill="#60a5fa">%s</text>
+                    <text x="482" y="222" font-family="monospace" font-size="16" font-weight="700" fill="#fafafa">%s</text>
+                    <g font-size="14" font-weight="700" text-anchor="middle">
+                      <rect x="62" y="345" width="119" height="38" rx="8" fill="#242424"/>
+                      <rect x="193" y="345" width="166" height="38" rx="8" fill="#242424"/>
+                      <rect x="371" y="345" width="174" height="38" rx="8" fill="#242424"/>
+                      <rect x="557" y="345" width="153" height="38" rx="8" fill="#242424"/>
+                      <rect x="722" y="345" width="116" height="38" rx="8" fill="#242424"/>
+                      <text x="121" y="370" fill="#93c5fd">Java</text>
+                      <text x="276" y="370" fill="#a3d977">Spring Boot</text>
+                      <text x="458" y="370" fill="#93c5fd">PostgreSQL</text>
+                      <text x="633" y="370" fill="#7dd3fc">Docker</text>
+                      <text x="780" y="370" fill="#f5a38e">Git</text>
+                    </g>
+                    <g fill="#fafafa" font-size="16" font-weight="700">
+                      <text x="62" y="495">Computer Science · UVA</text>
+                      <text x="62" y="563">Tutoring Management System</text>
+                      <text x="482" y="495">inHub</text>
+                      <text x="482" y="615">Java back-end internship</text>
+                    </g>
+                    <g fill="#b0b0b0" font-size="14">
+                      <text x="62" y="520">Rio de Janeiro, Brazil</text>
+                      <text x="62" y="589">Java · Spring Boot · PostgreSQL</text>
+                      <text x="62" y="614">Personal project</text>
+                    </g>
+                    <text x="40" y="682" font-size="11" fill="#a3a3a3">%s</text>
+                    <text x="860" y="682" text-anchor="end" font-size="13" fill="#93c5fd">joaoabreu.dev</text>
                   </g>
                 </svg>
                 """.formatted(xml(count), xml(shorten(repo)), xml(status));
@@ -63,7 +94,7 @@ public class ProfileCardCache {
         } catch (java.security.NoSuchAlgorithmException exception) { throw new IllegalStateException(exception); }
     }
 
-    private static String shorten(String value) { return value.length() <= 44 ? value : value.substring(0, 41) + "…"; }
+    private static String shorten(String value) { return value.length() <= 32 ? value : value.substring(0, 29) + "…"; }
     static String xml(String value) {
         return value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
                 .replace("\"", "&quot;").replace("'", "&apos;");
