@@ -28,3 +28,11 @@ Infrastructure remains João's manual work. Before enabling contact intake or la
 10. Keep the previous serving release/database and a rollback plan until the restore and release are approved. Do not move the static IP, delete the old VM or enable public intake merely because this local test passes.
 
 References: [PostgreSQL pg_dump](https://www.postgresql.org/docs/18/app-pgdump.html), [pg_restore](https://www.postgresql.org/docs/18/app-pgrestore.html), [SQL dump backup](https://www.postgresql.org/docs/18/backup-dump.html).
+
+## V2 off-site backup — 2026-11-14
+
+Files in `deploy/backup/`: `backup.sh` (installed as `/opt/portfolio-api/backup.sh`, mode 700) and a systemd service and timer (daily at 07:30 UTC, `Persistent=true`). Each run takes a `pg_dump` custom-format dump, a tar of `recommendations/`, a `SHA256SUMS` file covering both plus the running JAR, then encrypts the bundle with `age` to the public recipient in `backup-recipient.txt` before upload. It copies the archive to the private Lightsail bucket `joaoabreu-portfolio-v2-backups` (us-east-2, 5 GB plan) under `daily/`, reads it back to compare SHA-256, and deletes archives older than 30 days.
+
+The `age` private key never stays on the server: it was generated there, copied to João's machine and shredded on the VM. Keep a second copy in a password manager; without it no backup can be restored. The bucket access key lives only in `/opt/portfolio-api/backup.env` (mode 600) and is scoped to this bucket. `pg_dump` gives a consistent database snapshot; images are immutable content-addressed files, so a run without stopping writes is acceptable at current traffic.
+
+Restore: download an archive, `age -d -i backup-age.key archive.tar.age | tar -x`, check `sha256sum -c SHA256SUMS`, then follow steps 6–8 above into a separate database and image directory.
