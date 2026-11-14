@@ -13,6 +13,8 @@ import jakarta.servlet.ServletInputStream;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletRequestWrapper;
 import jakarta.servlet.http.HttpServletResponse;
+import dev.joaoabreu.portfolioapi.network.ClientAddressKey;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
@@ -27,6 +29,12 @@ public class ContactSubmissionFilter extends OncePerRequestFilter {
     private final Map<String, Integer> clients = new HashMap<>();
     private Instant windowEnd = Instant.EPOCH;
     private int total;
+    private final ClientAddressKey addresses;
+
+    public ContactSubmissionFilter() { this(ClientAddressKey.direct()); }
+
+    @Autowired
+    public ContactSubmissionFilter(ClientAddressKey addresses) { this.addresses = addresses; }
 
     @Override
     protected boolean shouldNotFilter(HttpServletRequest request) {
@@ -54,7 +62,7 @@ public class ContactSubmissionFilter extends OncePerRequestFilter {
             response.setStatus(413);
             return;
         }
-        long retry = reserve(request.getRemoteAddr());
+        long retry = reserve(addresses.of(request));
         if (retry > 0) {
             response.setStatus(429);
             response.setHeader("Retry-After", Long.toString(retry));

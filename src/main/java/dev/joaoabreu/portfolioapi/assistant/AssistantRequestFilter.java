@@ -13,14 +13,21 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import dev.joaoabreu.portfolioapi.network.ClientAddressKey;
 import org.springframework.http.MediaType;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 public class AssistantRequestFilter extends OncePerRequestFilter {
     static final int MAX_BODY_BYTES = 16 * 1024;
     private final AssistantRateLimiter limiter;
+    private final ClientAddressKey addresses;
 
-    public AssistantRequestFilter(AssistantRateLimiter limiter) { this.limiter = limiter; }
+    public AssistantRequestFilter(AssistantRateLimiter limiter) { this(limiter, ClientAddressKey.direct()); }
+
+    public AssistantRequestFilter(AssistantRateLimiter limiter, ClientAddressKey addresses) {
+        this.limiter = limiter;
+        this.addresses = addresses;
+    }
 
     public static boolean matches(HttpServletRequest request) {
         return "POST".equals(request.getMethod())
@@ -42,8 +49,7 @@ public class AssistantRequestFilter extends OncePerRequestFilter {
             reject(response, AssistantException.Code.UNSUPPORTED_MEDIA_TYPE);
             return;
         }
-        // Use the servlet-provided address. Do not parse spoofable forwarding headers here.
-        long retry = limiter.acquire(request.getRemoteAddr());
+        long retry = limiter.acquire(addresses.of(request));
         if (retry > 0) {
             response.setHeader("Retry-After", Long.toString(retry));
             reject(response, AssistantException.Code.RATE_LIMITED);

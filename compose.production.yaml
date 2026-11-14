@@ -1,5 +1,8 @@
 name: portfolio-production
 
+# Current ranges from https://www.cloudflare.com/ips/ (also the Lightsail firewall sources).
+x-cloudflare-cidrs: &cloudflare-cidrs "173.245.48.0/20,103.21.244.0/22,103.22.200.0/22,103.31.4.0/22,141.101.64.0/18,108.162.192.0/18,190.93.240.0/20,188.114.96.0/20,197.234.240.0/22,198.41.128.0/17,162.158.0.0/15,104.16.0.0/13,104.24.0.0/14,172.64.0.0/13,131.0.72.0/22,2400:cb00::/32,2606:4700::/32,2803:f800::/32,2405:b500::/32,2405:8100::/32,2a06:98c0::/29,2c0f:f248::/32"
+
 services:
   postgres:
     image: postgres:18-alpine
@@ -41,7 +44,7 @@ services:
       SPRING_JPA_HIBERNATE_DDL_AUTO: validate
       SPRING_JPA_OPEN_IN_VIEW: "false"
       SERVER_SERVLET_SESSION_COOKIE_SECURE: "true"
-      SERVER_FORWARD_HEADERS_STRATEGY: framework
+      SERVER_FORWARD_HEADERS_STRATEGY: "NONE"
       PORTFOLIO_ADMIN_UI_URL: ${ADMIN_UI_URL:-https://v2.joaoabreu.dev/en/admin/}
       GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
       GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
@@ -50,6 +53,13 @@ services:
       PORTFOLIO_RECOMMENDATIONS_MEDIA_DIR: /data/recommendations
       PORTFOLIO_PROFILE_CARD_ENABLED: ${PROFILE_CARD_ENABLED:-false}
       PORTFOLIO_PROFILE_CARD_GITHUB_TOKEN: ${PROFILE_CARD_GITHUB_TOKEN:-}
+      PORTFOLIO_VISITS_ENABLED: ${VISITS_ENABLED:-false}
+      PORTFOLIO_VISITS_HMAC_KEY: ${VISITS_HMAC_KEY:-}
+      PORTFOLIO_VISITS_IP_SOURCE: CLOUDFLARE_PROXY
+      PORTFOLIO_VISITS_TRUSTED_PROXIES: 172.18.0.1/32
+      PORTFOLIO_VISITS_CLOUDFLARE_CIDRS: *cloudflare-cidrs
+      PORTFOLIO_CLIENT_ADDRESS_TRUSTED_PROXIES: 172.18.0.1/32
+      PORTFOLIO_CLIENT_ADDRESS_CLOUDFLARE_CIDRS: *cloudflare-cidrs
     volumes:
       - type: bind
         source: ./portfolio-api.jar
@@ -74,6 +84,13 @@ services:
       options:
         max-size: "10m"
         max-file: "3"
+
+networks:
+  default:
+    ipam:
+      config:
+        - subnet: 172.18.0.0/16
+          gateway: 172.18.0.1
 
 volumes:
   postgres-data:
