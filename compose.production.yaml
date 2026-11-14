@@ -33,6 +33,9 @@ services:
     user: "10001:10001"
     working_dir: /app
     command: ["java", "-XX:MaxRAMPercentage=60.0", "-jar", "/app/portfolio-api.jar"]
+    env_file:
+      - path: ./smtp.env
+        required: false
     ports:
       - "127.0.0.1:8080:8080"
     environment:
