@@ -29,7 +29,7 @@ class BackupRestoreTests {
         try (var source = database("backup_source"); var target = database("backup_restored")) {
             source.start(); target.start();
             var migration = flyway(source);
-            assertEquals(8, migration.migrate().migrationsExecuted);
+            assertEquals(9, migration.migrate().migrationsExecuted);
 
             Path liveImages = temporary.resolve("source-images");
             var images = new RecommendationImages(liveImages.toString());
@@ -47,6 +47,7 @@ class BackupRestoreTests {
             try (Connection connection = connect(source); var sql = connection.createStatement()) {
                 sql.executeUpdate("INSERT INTO contact_messages(name,email,message,submission_key) VALUES ('Synthetic restore test','synthetic@example.invalid','Synthetic message before backup','22345678-1234-4234-8234-123456789abc')");
                 sql.executeUpdate("UPDATE visit_counter SET total=17 WHERE id=1");
+                sql.executeUpdate("UPDATE profile_card_settings SET published='{\"synthetic\":\"before backup\"}', version=3 WHERE id=1");
                 sql.executeUpdate("UPDATE publication_requests SET requested_generation=4, dispatched_generation=2");
                 try (var draft = connection.prepareStatement("INSERT INTO recommendation_drafts(slug,payload) VALUES ('synthetic-restore',?) RETURNING id")) {
                     draft.setString(1, json.writeValueAsString(details));
@@ -75,6 +76,7 @@ class BackupRestoreTests {
             try (Connection connection = connect(source); var sql = connection.createStatement()) {
                 sql.executeUpdate("UPDATE contact_messages SET message='Synthetic change after backup'");
                 sql.executeUpdate("UPDATE visit_counter SET total=99 WHERE id=1");
+                sql.executeUpdate("UPDATE profile_card_settings SET published=NULL, version=4 WHERE id=1");
             }
             Files.write(liveImages.resolve(key), new byte[] {0, 1, 2});
             assertFalse(images.exists(key));
@@ -107,6 +109,10 @@ class BackupRestoreTests {
                 }
                 try (var result = sql.executeQuery("SELECT total FROM visit_counter WHERE id=1")) {
                     assertTrue(result.next()); assertEquals(17, result.getLong(1));
+                }
+                try (var result = sql.executeQuery("SELECT published, version FROM profile_card_settings WHERE id=1")) {
+                    assertTrue(result.next()); assertEquals("{\"synthetic\":\"before backup\"}", result.getString(1));
+                    assertEquals(3, result.getLong(2));
                 }
                 try (var result = sql.executeQuery("SELECT requested_generation,dispatched_generation FROM publication_requests WHERE id=1")) {
                     assertTrue(result.next()); assertEquals(4, result.getLong(1)); assertEquals(2, result.getLong(2));
