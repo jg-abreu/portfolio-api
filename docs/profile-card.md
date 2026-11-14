@@ -45,3 +45,26 @@ After the final visual change, 10 focused ProfileCardTests/ProfileCardHttpTests 
 
 
 CodeQL V2 run `43558677217` completed successfully against renderer commit `8f95fa3` on 2026-11-14. This records the run conclusion, not a new alert-count audit.
+
+## Admin card editor — 2026-11-14
+
+João decided to edit the card from the admin before launch. The renderer moved from `ProfileCardCache` to `ProfileCardRenderer`, which draws a `ProfileCardSettings` configuration:
+
+- Closed choices only: `DARK`/`LIGHT` theme and `BLUE`/`GREEN`/`VIOLET`/`ORANGE` accent palettes, so contrast stays predictable. No arbitrary colours, fonts, links or images.
+- Visible blocks and their order (contributions, latest repository, stack, education/project, focus, opportunity). Half-width blocks go into the shorter of two columns; the stack spans the full width. The default order reproduces the approved 900×720 geometry; stack chips are now sized by text width.
+- Editable static text (name, role, monogram, headline, up to six technologies, education, project, focus, opportunity). Text is trimmed, rejects control/format characters, is length-bounded and must fit its panel by an estimated rendered width; violations return 400 with the offending `field`. Everything remains XML-escaped. Contribution count and latest repository still come only from GitHub.
+
+Storage: migration `V9__create_profile_card_settings.sql` creates one row holding the draft and the published configuration as validated JSON, with an optimistic `version`. No row value means the approved defaults.
+
+Admin endpoints (ADMIN role; writes need CSRF):
+
+| Method and path | Purpose |
+|---|---|
+| `GET /api/admin/profile-card` | Draft, published (or null), defaults, `pending`, timestamps and version. |
+| `PUT /api/admin/profile-card/draft` | Saves `{version, settings}`; stale version returns 409 without overwriting. |
+| `POST /api/admin/profile-card/publish` | Publishes the saved draft for `{version}`; the public SVG is re-rendered after commit and its ETag changes. |
+| `GET /api/admin/profile-card/preview.svg?settings=` | Renders unsaved settings (base64url JSON, at most 8 KiB) with the cached GitHub snapshot; `no-store`, sandbox CSP, nothing stored. A GET keeps the admin page within its `img-src 'self'` policy. |
+
+The public `GET /api/profile-card.svg` only ever reads the published configuration. GitHub keeps its own cached copy of README images, so a newly published card may take minutes to hours to appear there. The editor endpoints work while the public card is disabled; the preview then shows unavailable GitHub values instead of invented ones.
+
+Verification: 7 renderer tests (approved geometry, reflow, palettes, escaping/well-formed XML, chip widths, validation, trimming), 7 Testcontainers HTTP tests (defaults, private draft vs published public SVG, 409, 400 with field, preview no-store/size/malformed, CSRF, anonymous 401) and the backup/restore test now covering V9. Full suite: 147 tests passed. The habitual local JAR was not replaced, because restarting it needs João's local OAuth configuration.

@@ -14,7 +14,7 @@ Spring Boot backend for [João Abreu's portfolio](https://joaoabreu.dev), built 
 | Contact | Persistence before acknowledgment, HTTP retry deduplication, private inbox, SMTP outbox with retries and independent 90-day retention. |
 | Visits | Approximate total, one counted visit per canonical IP per 30 minutes, HMAC identifiers and transactional concurrency handling. |
 | Assistant | Independent EN/PT questions against an authorized knowledge base, Gemini adapter, validated sources and bounded requests. |
-| Profile card | Cached SVG with GitHub contributions and latest public repository, background refresh and last-good fallback. |
+| Profile card | Cached SVG with GitHub contributions and latest public repository, background refresh and last-good fallback; layout, palette and text edited from the admin with draft and publish. |
 
 Saving a draft does not publish it. Selecting a public copy prepares the next static build; it records a durable request for the optional dispatcher. The receiving workflow is not connected yet; see [publication](docs/publication.md). The site reads selected projects/recommendations at build time and emits revision manifests. Failed configured sources stop the build so the prior deployed release can be retained.
 
@@ -81,6 +81,7 @@ The frontend's contact/visit flags are separate from API flags. Do not enable SM
 | `GET /api/visits`, `POST /api/visits` | Optional counter; registration requires CSRF. |
 | `POST /api/assistant/messages` | Public, bounded and rate limited; exempt from CSRF. |
 | `GET /api/profile-card.svg` | Optional cached image with ETag/304; no visitor-triggered GitHub request. |
+| `/api/admin/profile-card` | Card editor: read, save draft, publish and preview (admin only). |
 
 Other routes are denied by default. Rate limits for contact and assistant are process-local, not distributed spending caps. Trusted proxy configuration must be reviewed before exposing these endpoints behind Cloudflare/nginx.
 
