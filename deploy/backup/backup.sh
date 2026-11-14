@@ -12,8 +12,8 @@ trap 'rm -rf "$work"' EXIT
 docker exec portfolio-production-postgres-1 pg_dump -U portfolio -d portfolio -Fc > "$work/db.dump"
 tar -C /opt/portfolio-api -cf "$work/recommendations.tar" recommendations
 (cd "$work" && sha256sum db.dump recommendations.tar > SHA256SUMS)
-sha256sum portfolio-api.jar >> "$work/SHA256SUMS"
-tar -C "$work" -cf - db.dump recommendations.tar SHA256SUMS | age -R backup-recipient.txt > "$work/archive.age"
+sha256sum portfolio-api.jar > "$work/API-VERSION"
+tar -C "$work" -cf - db.dump recommendations.tar SHA256SUMS API-VERSION | age -R backup-recipient.txt > "$work/archive.age"
 name="daily/portfolio-v2-$timestamp.tar.age"
 rclone copyto "$work/archive.age" "ls:$BACKUP_BUCKET/$name"
 local_sum=$(sha256sum "$work/archive.age" | cut -d' ' -f1)
