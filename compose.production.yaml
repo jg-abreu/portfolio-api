@@ -46,11 +46,20 @@ services:
       GITHUB_CLIENT_ID: ${GITHUB_CLIENT_ID:-}
       GITHUB_CLIENT_SECRET: ${GITHUB_CLIENT_SECRET:-}
       GITHUB_REDIRECT_URI: ${GITHUB_REDIRECT_URI:-https://v2.joaoabreu.dev/login/oauth2/code/github}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      PORTFOLIO_RECOMMENDATIONS_MEDIA_DIR: /data/recommendations
+      PORTFOLIO_PROFILE_CARD_ENABLED: ${PROFILE_CARD_ENABLED:-false}
+      PORTFOLIO_PROFILE_CARD_GITHUB_TOKEN: ${PROFILE_CARD_GITHUB_TOKEN:-}
     volumes:
       - type: bind
         source: ./portfolio-api.jar
         target: /app/portfolio-api.jar
         read_only: true
+        bind:
+          create_host_path: false
+      - type: bind
+        source: ./recommendations
+        target: /data/recommendations
         bind:
           create_host_path: false
     read_only: true
