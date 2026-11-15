@@ -2,7 +2,7 @@
 
 Spring Boot backend for [João Abreu's portfolio](https://joaoabreu.dev), built with Java 21, Spring Security, PostgreSQL and Flyway. The companion [Astro site](https://github.com/jg-abreu/portfolio) remains static; this API provides the private workspace and interactive features.
 
-**V2 is under development on `feat/v2`.** Features documented here are local implementations, not a claim that the published site runs this version. Release, profile README integration and automatic static-site publication remain separate steps.
+**Live since the V2 cutover on 2026-11-14.** Two instances run behind nginx on the `portfolio-v2-2gb` Lightsail VM with PostgreSQL 18 (see [PRODUCTION.md](PRODUCTION.md) and the site's `deploy/README.md`). Optional features are enabled per environment, so a feature documented here is not necessarily switched on in production.
 
 ## Features
 
@@ -16,7 +16,7 @@ Spring Boot backend for [João Abreu's portfolio](https://joaoabreu.dev), built 
 | Assistant | Independent EN/PT questions against an authorized knowledge base, Gemini adapter, validated sources and bounded requests. |
 | Profile card | Cached SVG with GitHub contributions and latest public repository, background refresh and last-good fallback; layout, palette and text edited from the admin with draft and publish. |
 
-Saving a draft does not publish it. Selecting a public copy prepares the next static build; it records a durable request for the optional dispatcher. The receiving workflow is not connected yet; see [publication](docs/publication.md). The site reads selected projects/recommendations at build time and emits revision manifests. Failed configured sources stop the build so the prior deployed release can be retained.
+Saving a draft does not publish it. Selecting a public copy prepares the next static build; it records a durable request for the optional dispatcher, which triggers the site's `deploy.yml` on `main`; see [publication](docs/publication.md). The site reads selected projects/recommendations at build time and emits revision manifests. Failed configured sources stop the build so the prior deployed release can be retained.
 
 ## Local development
 
@@ -61,7 +61,7 @@ Contact intake, mail delivery, retention, visits and the profile card are disabl
 | `PORTFOLIO_VISITS_ENABLED` | Requires a private HMAC key and validated client-address mode; see [visits](docs/visits.md). |
 | `GOOGLE_BOOKS_API_KEY` | Server-side Books API key; see [recommendations](docs/recommendations.md). |
 | `GEMINI_API_KEY` | Private model credential; see [assistant](docs/assistant.md). Missing configuration leaves the assistant unavailable. |
-| `PORTFOLIO_PUBLICATION_ENABLED` | Optional V2-only workflow dispatcher; private `PUBLICATION_GITHUB_TOKEN` and manually prepared receiver required. |
+| `PORTFOLIO_PUBLICATION_ENABLED` | Optional dispatcher of the site's `deploy.yml` on `main`; requires a private `PUBLICATION_GITHUB_TOKEN`. |
 | `PORTFOLIO_PROFILE_CARD_ENABLED` | Enables the public SVG route. |
 | `PROFILE_CARD_GITHUB_TOKEN` | Minimal public-data GraphQL access for background card refresh; see [profile card](docs/profile-card.md). |
 
@@ -83,7 +83,7 @@ The frontend's contact/visit flags are separate from API flags. Do not enable SM
 | `GET /api/profile-card.svg` | Optional cached image with ETag/304; no visitor-triggered GitHub request. |
 | `/api/admin/profile-card` | Card editor: read, save draft, publish and preview (admin only). |
 
-Other routes are denied by default. Rate limits for contact and assistant are process-local, not distributed spending caps. Trusted proxy configuration must be reviewed before exposing these endpoints behind Cloudflare/nginx.
+Other routes are denied by default. Rate limits for contact and assistant are process-local, not distributed spending caps. Behind Cloudflare and nginx they key on the visitor's `CF-Connecting-IP` only through the trusted proxy chain (`network/ClientAddressKey`); see [assistant](docs/assistant.md). `GET /api/instance` names the instance that served the request.
 
 ## Tests
 
