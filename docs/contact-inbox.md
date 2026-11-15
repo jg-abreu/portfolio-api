@@ -6,7 +6,7 @@ All routes require the GitHub ADMIN session. Mutations also require the existing
 
 | Method | Route | Contract |
 | --- | --- | --- |
-| GET | `/api/admin/messages?archived=false&page=0&size=20` | Newest first, maximum 50 items. Returns messages, page, size, totalElements and hasNext. Summaries omit email and message body. |
+| GET | `/api/admin/messages?archived=false&page=0&size=20` | Newest first, maximum 50 items. Returns messages, page, size, totalElements, hasNext and unreadCount (unread messages outside the archive, independent of the page and filter). Summaries omit email and message body. |
 | GET | `/api/admin/messages/{id}` | Full message and current version. Reading does not automatically mark it read. |
 | PATCH | `/api/admin/messages/{id}/read` | JSON value (boolean) and version (nonnegative integer). |
 | PATCH | `/api/admin/messages/{id}/archive` | Same body; false restores to inbox. |

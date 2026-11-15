@@ -7,4 +7,5 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface ContactMessageRepository extends JpaRepository<ContactMessage, Long> {
     Page<ContactMessage> findByArchivedAtIsNull(Pageable pageable);
     Page<ContactMessage> findByArchivedAtIsNotNull(Pageable pageable);
+    long countByArchivedAtIsNullAndReadAtIsNull();
 }

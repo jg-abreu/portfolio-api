@@ -20,7 +20,7 @@ public class ContactInboxService {
         var result = archived ? messages.findByArchivedAtIsNotNull(pagination)
                 : messages.findByArchivedAtIsNull(pagination);
         return new InboxPage(result.map(ContactMessage::summary).getContent(), page, size,
-                result.getTotalElements(), result.hasNext());
+                result.getTotalElements(), result.hasNext(), messages.countByArchivedAtIsNullAndReadAtIsNull());
     }
 
     public ContactMessage.Detail get(long id) { return find(id).detail(); }
@@ -40,5 +40,5 @@ public class ContactInboxService {
     }
 
     public record InboxPage(List<ContactMessage.Summary> messages, int page, int size,
-            long totalElements, boolean hasNext) {}
+            long totalElements, boolean hasNext, long unreadCount) {}
 }

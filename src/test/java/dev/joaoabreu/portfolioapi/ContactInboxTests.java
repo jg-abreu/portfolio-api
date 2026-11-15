@@ -53,6 +53,17 @@ class ContactInboxTests {
     }
 
     @Test
+    void countsUnreadMessagesOutsideTheArchiveOnEveryPage() throws Exception {
+        long read = seed("Read");
+        long archived = seed("Archived");
+        seed("Unread");
+        change(read, "read", true, 0).andExpect(status().isOk());
+        change(archived, "archive", true, 0).andExpect(status().isOk());
+        mvc.perform(get("/api/admin/messages")).andExpect(jsonPath("$.unreadCount").value(1));
+        mvc.perform(get("/api/admin/messages").param("archived", "true")).andExpect(jsonPath("$.unreadCount").value(1));
+    }
+
+    @Test
     void readingDetailsDoesNotImplicitlyMarkReadAndNeverCachesPrivateData() throws Exception {
         long id = seed("Sender");
         mvc.perform(get("/api/admin/messages/" + id)).andExpect(status().isOk())
