@@ -32,11 +32,16 @@ class GoogleBooksPublicationTests {
     @Autowired ObjectMapper json;
     @MockitoBean GoogleBooksService books;
     MockMvc mvc;
+    long bookSection;
+    long setup;
     @BeforeEach
     void setup() {
         mvc = MockMvcBuilders.webAppContextSetup(context).apply(springSecurity()).build();
         jdbc.sql("DELETE FROM recommendation_publications").update();
         jdbc.sql("DELETE FROM recommendation_drafts").update();
+        jdbc.sql("DELETE FROM recommendation_sections").update();
+        bookSection = jdbc.sql("INSERT INTO recommendation_sections(kind,en_title,pt_title) VALUES ('BOOKS','Books','Livros') RETURNING id").query(Long.class).single();
+        setup = jdbc.sql("INSERT INTO recommendation_sections(kind,en_title,pt_title,display_order) VALUES ('ITEMS','Setup','Setup',1) RETURNING id").query(Long.class).single();
         when(books.verify("edition")).thenReturn(new GoogleBooksService.Book("edition", "Synthetic", List.of(), "", "", true,
                 "https://books.google.com/books?id=edition", "https://books.google.com/books/content?id=edition"));
     }
@@ -49,9 +54,9 @@ class GoogleBooksPublicationTests {
                 .content("{\"version\":0}")).andExpect(status().isOk());
         verify(books).verify("edition");
         mvc.perform(get("/api/recommendations").with(anonymous())).andExpect(status().isOk())
-                .andExpect(jsonPath("$.recommendations[0].data.googleBooksId").value("edition"))
-                .andExpect(jsonPath("$.recommendations[0].data.imageKey").value(""))
-                .andExpect(jsonPath("$.recommendations[0].data.en.title").value("My personal title"));
+                .andExpect(jsonPath("$.sections[0].items[0].data.googleBooksId").value("edition"))
+                .andExpect(jsonPath("$.sections[0].items[0].data.imageKey").value(""))
+                .andExpect(jsonPath("$.sections[0].items[0].data.en.title").value("My personal title"));
     }
     @Test
     void bookRoutesRequireAdminAndSelectionRequiresCsrf() throws Exception {
@@ -68,7 +73,10 @@ class GoogleBooksPublicationTests {
     }
     String payload(String category, String image, String book) {
         var copy = Map.of("title", "My personal title", "description", "My own recommendation", "imageAlt", "Cover");
-        return json.writeValueAsString(Map.of("version", 0, "data", Map.of("slug", "synthetic-reference", "category", category,
-                "imageKey", image, "googleBooksId", book, "url", "", "displayOrder", 0, "en", copy, "pt", copy)));
+        boolean isBook = category.equals("BOOKS");
+        var data = new java.util.HashMap<String, Object>(Map.of("slug", "synthetic-reference", "sectionId", isBook ? bookSection : setup,
+                "imageKey", image, "googleBooksId", book, "url", "", "rating", isBook ? 5 : 0, "subtitle", "", "en", copy, "pt", copy));
+        data.put("bookGroup", isBook ? "TECHNICAL" : null);
+        return json.writeValueAsString(Map.of("version", 0, "data", data));
     }
 }
