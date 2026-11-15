@@ -22,8 +22,12 @@ public class InstanceIdentity {
     private final String name;
 
     public InstanceIdentity(@Value("${portfolio.instance.name:local}") String name) {
+        this.name = validated(name);
+    }
+
+    static String validated(String name) {
         if (name == null || !name.matches("[A-Za-z0-9-]{1,16}")) throw new IllegalArgumentException("Invalid instance name");
-        this.name = name;
+        return name;
     }
 
     public String name() { return name; }
@@ -36,14 +40,14 @@ public class InstanceIdentity {
     @Component
     @Order(Ordered.HIGHEST_PRECEDENCE)
     public static class HeaderFilter extends OncePerRequestFilter {
-        private final InstanceIdentity identity;
+        private final String name;
 
-        HeaderFilter(InstanceIdentity identity) { this.identity = identity; }
+        HeaderFilter(@Value("${portfolio.instance.name:local}") String name) { this.name = validated(name); }
 
         @Override
         protected void doFilterInternal(HttpServletRequest request, HttpServletResponse response, FilterChain chain)
                 throws ServletException, IOException {
-            response.setHeader(HEADER, identity.name());
+            response.setHeader(HEADER, name);
             chain.doFilter(request, response);
         }
     }
