@@ -8,6 +8,10 @@ All private endpoints require the GitHub admin session. Mutations also require t
 
 | Method | Path | Purpose |
 | --- | --- | --- |
+| GET / POST | `/api/admin/recommendation-sections` | List (with active item counts) / create sections |
+| PUT / DELETE | `/api/admin/recommendation-sections/{id}` | Rename or retype / delete an empty section |
+| PUT | `/api/admin/recommendation-sections/order` | `{ids}`: every section, in display order |
+| PUT | `/api/admin/recommendations/order` | `{sectionId, ids}`: every item of the section, in display order |
 | GET / POST | `/api/admin/recommendations` | List / create drafts |
 | GET / PUT | `/api/admin/recommendations/{id}` | Read / update a draft |
 | PATCH | `/api/admin/recommendations/{id}/status` | Archive or restore |
@@ -15,16 +19,18 @@ All private endpoints require the GitHub admin session. Mutations also require t
 | GET | `/api/admin/recommendation-publications` | Selected revisions |
 | POST | `/api/admin/recommendation-images` | Multipart `image` upload |
 | GET | `/api/admin/recommendation-images/{key}` | Private preview |
-| GET | `/api/recommendations` | Public schema-version-1 snapshot |
+| GET | `/api/recommendations` | Public schema-version-2 snapshot |
 | GET | `/api/recommendation-images/{key}` | Image referenced by a selected public copy |
 
-Create and update requests contain `version` and `data`. Data contains `slug`, `category` (`BOOKS`, `COURSES`, `VIDEOS`, `SETUP`, `TOOLS`), `imageKey`, optional `url` represented as an empty string, nonnegative `displayOrder`, and `en` / `pt` copies with `title`, personal `description` and `imageAlt`. Drafts allow incomplete copies and an empty image key. Nonempty image keys must already exist. Links must be credential-free HTTPS.
+Sections (migration V11) are free: each has an EN/PT title and a kind, `BOOKS` or `ITEMS`, at most 20. A section can be retyped or deleted only while it holds no items.
+
+Create and update requests contain `version` and `data`. Data contains `slug` (empty: generated from the title and kept unique), `sectionId`, `imageKey`, optional `url` represented as an empty string, `rating`, `bookGroup`, `subtitle` (author or brand, up to 150 characters), `googleBooksId` and `en` / `pt` copies with `title`, a short personal `description` (up to 300 characters) and `imageAlt` (empty: "Cover of …"/"Capa de …" for books, "Photo of …"/"Foto de …" for items). Books need a `rating` from 1 to 5 and a `bookGroup` (`TECHNICAL` or `NON_TECHNICAL`); items must have rating 0, no group and no Google Books reference. Order is not part of `data`: new items go to the end of their section, and the order endpoints rearrange them. Drafts allow incomplete copies. Nonempty image keys must already exist. Links must be credential-free HTTPS. V11 removed the earlier category-based drafts; production had none.
 
 Create uses version 0. Editing and status changes increment the version. Publication and withdrawal requests contain the current `version`. Row locks serialize mutations; stale versions return 409 and cannot overwrite another editor. Duplicate draft or selected slugs also return 409. Missing records return 404.
 
-Selecting a copy requires an active draft, complete EN/PT text and either an imported image or a verified Google Books cover reference. It captures a UUID revision, the draft version and a separate JSON copy. Later edits or archiving leave that public copy unchanged. Withdrawal removes the selected copy and its public image access when no other selected recommendation uses the image. It preserves the draft and file.
+Selecting a copy requires an active draft and complete EN/PT title and description; books also need an imported image or a verified Google Books cover reference, while items may have no image. It captures a UUID revision, the draft version and a separate JSON copy. Later edits or archiving leave that public copy unchanged. Withdrawal removes the selected copy and its public image access when no other selected recommendation uses the image. It preserves the draft and file.
 
-The snapshot matches the static frontend contract and sorts by category, display order and slug. Draft creation is capped at 500 records, including archived drafts. The static frontend downloads selected images during build and does not query this API per visit.
+The snapshot (`{schemaVersion: 2, sections: [{id, kind, en, pt, items}]}`) lists only sections with selected items, in section order, and each section's items in the current draft order; section titles and order are read live, so renaming or reordering requests a new build when something is published. Draft creation is capped at 500 records, including archived drafts. The static frontend downloads selected images during build and does not query this API per visit.
 
 ## Image storage
 

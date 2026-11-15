@@ -29,7 +29,7 @@ class BackupRestoreTests {
         try (var source = database("backup_source"); var target = database("backup_restored")) {
             source.start(); target.start();
             var migration = flyway(source);
-            assertEquals(10, migration.migrate().migrationsExecuted);
+            assertEquals(11, migration.migrate().migrationsExecuted);
 
             Path liveImages = temporary.resolve("source-images");
             var images = new RecommendationImages(liveImages.toString());
@@ -39,8 +39,9 @@ class BackupRestoreTests {
             byte[] originalImage = images.read(key);
             String revision = "12345678-1234-4234-8234-123456789abc";
             var json = new ObjectMapper();
-            var details = new RecommendationModels.Details("synthetic-restore", RecommendationModels.Category.BOOKS,
-                    key, "", 0, new RecommendationModels.Copy("Synthetic restore test", "Synthetic review only", "Synthetic image"),
+            var details = new RecommendationModels.Details("synthetic-restore", 1L, key, "", 4,
+                    RecommendationModels.BookGroup.TECHNICAL, "Synthetic author",
+                    new RecommendationModels.Copy("Synthetic restore test", "Synthetic review only", "Synthetic image"),
                     new RecommendationModels.Copy("Teste sintético de restauração", "Somente revisão sintética", "Imagem sintética"), "");
             String payload = json.writeValueAsString(new RecommendationModels.Publication(1, revision, 0, details));
 
@@ -49,7 +50,8 @@ class BackupRestoreTests {
                 sql.executeUpdate("UPDATE visit_counter SET total=17 WHERE id=1");
                 sql.executeUpdate("UPDATE profile_card_settings SET published='{\"synthetic\":\"before backup\"}', version=3 WHERE id=1");
                 sql.executeUpdate("UPDATE publication_requests SET requested_generation=4, dispatched_generation=2");
-                try (var draft = connection.prepareStatement("INSERT INTO recommendation_drafts(slug,payload) VALUES ('synthetic-restore',?) RETURNING id")) {
+                sql.executeUpdate("INSERT INTO recommendation_sections(id,kind,en_title,pt_title) VALUES (1,'BOOKS','Books','Livros')");
+                try (var draft = connection.prepareStatement("INSERT INTO recommendation_drafts(slug,payload,section_id) VALUES ('synthetic-restore',?,1) RETURNING id")) {
                     draft.setString(1, json.writeValueAsString(details));
                     try (var result = draft.executeQuery()) {
                         assertTrue(result.next());

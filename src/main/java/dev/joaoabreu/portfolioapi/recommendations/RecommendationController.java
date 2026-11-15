@@ -21,6 +21,25 @@ public class RecommendationController {
         this.recommendations = recommendations;
         this.images = images;
     }
+    @GetMapping("/api/admin/recommendation-sections")
+    public ResponseEntity<List<Section>> sections() { return privateResponse(recommendations.sections()); }
+    @PostMapping("/api/admin/recommendation-sections")
+    public ResponseEntity<Section> createSection(@Valid @RequestBody SaveSection request) {
+        return ResponseEntity.status(HttpStatus.CREATED).cacheControl(CacheControl.noStore()).body(recommendations.createSection(request));
+    }
+    @PutMapping("/api/admin/recommendation-sections/order")
+    public ResponseEntity<List<Section>> orderSections(@Valid @RequestBody SectionOrder request) { return privateResponse(recommendations.orderSections(request)); }
+    @PutMapping("/api/admin/recommendation-sections/{id}")
+    public ResponseEntity<Section> updateSection(@PathVariable long id, @Valid @RequestBody SaveSection request) {
+        return privateResponse(recommendations.updateSection(id, request));
+    }
+    @DeleteMapping("/api/admin/recommendation-sections/{id}")
+    public ResponseEntity<Void> deleteSection(@PathVariable long id, @Valid @RequestBody Version request) {
+        recommendations.deleteSection(id, request.version());
+        return ResponseEntity.noContent().cacheControl(CacheControl.noStore()).build();
+    }
+    @PutMapping("/api/admin/recommendations/order")
+    public ResponseEntity<List<Draft>> orderItems(@Valid @RequestBody ItemOrder request) { return privateResponse(recommendations.orderItems(request)); }
     @GetMapping("/api/admin/recommendations")
     public ResponseEntity<List<Draft>> list() { return privateResponse(recommendations.list()); }
     @GetMapping("/api/admin/recommendations/{id}")
