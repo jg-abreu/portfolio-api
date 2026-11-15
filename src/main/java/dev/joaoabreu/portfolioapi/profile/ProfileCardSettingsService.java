@@ -7,6 +7,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.ObjectMapper;
 
 @Service
@@ -72,7 +73,10 @@ public class ProfileCardSettingsService {
     private ProfileCardSettings parse(String stored) {
         if (stored == null) return ProfileCardSettings.DEFAULTS;
         try {
-            return json.readValue(stored, ProfileCardSettings.class).validated();
+            JsonNode tree = json.readTree(stored);
+            if (tree.path("blocks").path(0).isString())
+                return json.treeToValue(tree, ProfileCardSettings.Legacy.class).convert().validated();
+            return json.treeToValue(tree, ProfileCardSettings.class).validated();
         } catch (RuntimeException exception) {
             return ProfileCardSettings.DEFAULTS;
         }

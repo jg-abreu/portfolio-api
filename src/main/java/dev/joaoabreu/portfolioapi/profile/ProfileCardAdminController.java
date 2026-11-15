@@ -17,7 +17,7 @@ import tools.jackson.databind.ObjectMapper;
 @RestController
 @RequestMapping("/api/admin/profile-card")
 public class ProfileCardAdminController {
-    private static final int MAX_PREVIEW = 8192;
+    private static final int MAX_PREVIEW = 16384;
     private final ProfileCardSettingsService settings;
     private final ObjectProvider<ProfileCardCache> cache;
     private final ObjectMapper json;

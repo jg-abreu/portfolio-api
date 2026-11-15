@@ -68,3 +68,13 @@ Admin endpoints (ADMIN role; writes need CSRF):
 The public `GET /api/profile-card.svg` only ever reads the published configuration. GitHub keeps its own cached copy of README images, so a newly published card may take minutes to hours to appear there. The editor endpoints work while the public card is disabled; the preview then shows unavailable GitHub values instead of invented ones.
 
 Verification: 7 renderer tests (approved geometry, reflow, palettes, escaping/well-formed XML, chip widths, validation, trimming), 7 Testcontainers HTTP tests (defaults, private draft vs published public SVG, 409, 400 with field, preview no-store/size/malformed, CSRF, anonymous 401) and the backup/restore test now covering V9. Full suite: 147 tests passed. The habitual local JAR was not replaced, because restarting it needs João's local OAuth configuration.
+
+## Free blocks — 2026-11-15
+
+João asked for blocks without fixed fields. `ProfileCardSettings` now holds the theme, accent, identity (name, role, monogram, headline) and up to nine `blocks`, each `{id, kind, title, width, lines, stack}`:
+
+- `kind`: `CONTRIBUTIONS` and `LATEST_REPOSITORY` (values from GitHub only), `STACK` (one to eight chips) or `TEXT` (one to four lines, each `STRONG` or `NORMAL`). Every title is editable and rendered in capitals.
+- `width`: `THIRD`, `HALF` or `FULL` of a six-column grid (2, 3 or 6 columns of 120 px with 20 px gaps). Blocks fill rows in order; a block that does not fit starts a new row, and the last block of an incomplete row stretches to close it. Every block in a row takes the tallest natural height. Chips wrap inside narrow blocks.
+- Validation names the offending path (`blocks[2].lines[0]`), checks every text against the real width after stretching, and rejects duplicate or malformed ids.
+
+Settings saved by the fixed-field editor are converted when read, without a migration: the old six blocks become seven (education and project are now separate half blocks) with the same text. The default card is therefore 900×770 instead of 900×720. The preview query accepts up to 16 KiB.
