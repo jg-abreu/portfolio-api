@@ -34,3 +34,11 @@ The tested JAR SHA-256 was cc67d8a555aeba9eb9927684f37cf553c96e2380d2744a94a55d1
 Counters can coordinate through the shared database and same stable HMAC key. Current sessions are process-local: session-bound CSRF/OAuth/admin flows need consistent routing; losing a node loses its sessions. Affinity alone does not provide seamless failover or shared session storage. Do not disable CSRF to make round-robin requests pass.
 
 This exercise is not a proposal to add a second API to the small serving VM. Keep the intended single-instance release until production resources and a justified scaling requirement are reviewed. A future multi-instance deployment needs a separately reviewed session strategy, persistence, rate-limit behavior, health routing and resource budget. No additional machine, paid service or infrastructure was provisioned here.
+
+## Production: two instances behind nginx — 2026-11-15
+
+`compose.production.yaml` now runs `api` (instance A, 127.0.0.1:8080) and `api-b` (instance B, 127.0.0.1:8081) from the same JAR, configuration and database, each limited to 576 MiB. `PORTFOLIO_INSTANCE_NAME` names each one; every response carries `X-Instance`, and the public `GET /api/instance` returns `{"instance": "A"}` with `no-store`, so the pipeline page can show which instance served the visit.
+
+nginx balances with `hash $http_cf_connecting_ip consistent`: each visitor (the real address Cloudflare forwards) always reaches the same instance, which keeps the in-memory admin session, CSRF token and per-visitor rate limits consistent, as in the local exercise. If an instance fails, nginx retries idempotent requests on the other one. Admin sessions on the failed instance end and need a new login.
+
+Background work is safe with two instances: contact delivery claims rows with `FOR UPDATE SKIP LOCKED`, publication dispatch uses a lease, retention deletes are idempotent, and each instance refreshes the GitHub card snapshot independently (two GitHub calls every 15 minutes). Rate limits are per instance: the assistant's global budget is 100 questions per minute on each instance.
