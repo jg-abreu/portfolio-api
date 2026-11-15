@@ -1,26 +1,25 @@
-# Portfolio AI assistant - V2 scope
+# Portfolio AI assistant
 
-## Release boundary
+## Status
 
-The AI assistant is exclusive to V2. Its integration target is `feat/v2` in both repositories: `portfolio` and `portfolio-api`. Feature branches must be based on V2 and their pull requests must target `feat/v2` exclusively.
+The assistant is live on https://joaoabreu.dev since the V2 cutover on 2026-11-14 (API PR jg-abreu/portfolio-api#16, site PR jg-abreu/portfolio#35). The Gemini key is configured privately in the production `.env` by João. This file is kept identical in `portfolio` and `portfolio-api`.
 
-- Keep all assistant-related code, configuration, knowledge resources, prompts, tests and documentation within V2 and its feature branches; never target `main`.
-- Preserve V1 and the currently published website. Do not add or backport the assistant to V1, `main`, or the current production site.
-- Do not merge into `main`, push any branch, or deploy without an explicit request from the user for the corresponding action.
-- Authorization to implement or test locally does not authorize publication. Existing general Git workflow instructions do not override this feature-specific restriction.
-- Before further edits or Git operations, verify the active branch in both repositories. Do not move unrelated local changes or switch to `main` to continue this feature.
-- Local development servers, builds and generated artifacts are for V2 verification only; they do not establish that the feature is published.
+## Change rules
 
-## Responsibilities and current implementation
+- `main` is live in both repositories. Assistant changes follow the normal workflow: a prefixed branch from `main`, a PR to `main`, and João reviews and merges.
+- Real Gemini calls (outside the live site's own visitors) happen only when João asks for them; automated tests always simulate the provider.
+- Never print, commit or paste the Gemini key. It lives only in environment variables and the VM's private `.env`.
+- A change to the contract, limits, knowledge base or System Prompt updates this file in both repositories in the same change.
+- One authorization does not cover another: a request to push does not authorize merging, and merging does not authorize a server change.
+
+## Responsibilities
 
 | Repository | Assistant scope |
 | --- | --- |
-| `portfolio` | Bilingual Astro interface, v1 contract types and validation, browser error handling, tests and local development proxy. |
+| `portfolio` | Bilingual Astro interface (`Assistant.astro`, `scripts/assistant.ts`), v1 contract types and validation (`lib/assistant.ts`), browser error handling, tests and the local development proxy. |
 | `portfolio-api` | Gemini configuration, authorized knowledge base and System Prompt, resource validation, model adapter, response assembly, public v1 endpoint, request limits and simulated tests. |
 
-The public contract remains `POST /api/assistant/messages` v1: independent questions, `pt`/`en` locales, and `answered`/`insufficient_knowledge` responses. The backend owns public source metadata, `knowledgeVersion`, and the exact insufficient-knowledge wording.
-
-The HTTP controller is implemented on `feat/v2`. The local Astro proxy is not a production nginx change. The interface and backend service must not be described as a feature already published on the current site.
+The public contract is `POST /api/assistant/messages` v1: independent questions, `pt`/`en` locales, and `answered`/`insufficient_knowledge` responses. The backend owns public source metadata, `knowledgeVersion`, and the exact insufficient-knowledge wording.
 
 Knowledge files and the System Prompt are in English; visitor answers remain Portuguese or English according to `locale`. Tests use simulated Gemini responses without real API calls.
 
@@ -36,22 +35,30 @@ Rate limits use fixed time windows, shared by all requests handled by one applic
 
 | Property | Default | Meaning |
 | --- | --- | --- |
-| `portfolio.assistant.rate-limit.requests-per-window` | `10` | Requests per servlet client address per window. |
+| `portfolio.assistant.rate-limit.requests-per-window` | `10` | Requests per client address per window. |
 | `portfolio.assistant.rate-limit.global-requests-per-window` | `100` | Total requests per application instance per window. |
 | `portfolio.assistant.rate-limit.window` | `60s` | Window duration, from 1 second to 1 day. |
 | `portfolio.assistant.rate-limit.max-clients` | `4096` | Maximum client entries retained during a window. |
 
 These values can be set through Spring configuration, including environment variables such as `PORTFOLIO_ASSISTANT_RATELIMIT_REQUESTSPERWINDOW`. Quota exhaustion or a full client registry returns `429 RATE_LIMITED` and a positive integer `Retry-After` in seconds until the next window. Requests admitted by the limiter consume quota even when later JSON validation fails. Requests rejected for a declared oversized body or unsupported content type do not consume quota.
 
-Counters are atomic, bounded, in-memory and reset on restart; this is not a distributed quota or a monthly provider spending cap. The limiter uses `getRemoteAddr()` and does not parse `X-Forwarded-For` or `Forwarded`. Before a future V2 deployment, configure trusted proxies so the servlet address represents the intended client. Otherwise users behind the same proxy share a quota; untrusted forwarded-header processing must not allow spoofing. No nginx changes or production publication are included in this implementation.
+The client address comes from `ClientAddressKey` (shared with the contact form). With `portfolio.client-address.trusted-proxies` and `portfolio.client-address.cloudflare-cidrs` both set, it uses `CF-Connecting-IP` only when the socket peer is a trusted proxy (the Docker gateway in production) and nginx's `X-Real-IP` is a Cloudflare address; otherwise it falls back to the socket address. With neither set (local development) it uses the socket address. Forwarded headers are never trusted on their own.
 
-## Publication gate
+Counters are atomic, bounded, in-memory and reset on restart; this is not a distributed quota or a monthly provider spending cap. Production runs two API instances; nginx hashes on the visitor's address (`CF-Connecting-IP`), so a visitor stays on one instance and the per-client limit holds, while the global limit applies per instance (up to 200 requests per window in total).
 
-Any future release work must respect the V2-only boundary. A request for one action (for example, pushing `feat/v2`) does not grant permission for another (merging into `main` or deploying). Confirm the requested release target and scope before carrying out an explicitly requested publication action.
+## Remaining work
 
-## Validation status (2026-11-12)
+1. Review Gemini quota and cost on the provider side; the local limits are not a spending cap.
+2. Audit more real PT/EN answers for factual fidelity and source selection; the recorded samples below are not a general accuracy guarantee.
+3. Screen-reader and physical-device checks; current evidence comes from emulated Chrome viewports and keyboard checks.
 
-### Automated tests with simulated AI
+## Validation history
+
+The sections below record evidence in the order it was gathered. Statements such as "not published" or "pending" in them describe that moment, not the current status above.
+
+### Validation status (2026-11-12)
+
+#### Automated tests with simulated AI
 
 - The complete backend suite passed: 69 tests, zero failures, errors or skipped tests.
 - PostgreSQL 18 ran in isolated Testcontainers databases, and all four Flyway migrations were applied. The persistent development database was not used as the test database.
@@ -60,7 +67,7 @@ Any future release work must respect the V2-only boundary. A request for one act
 - The frontend assistant client suite passed all eight tests, including contract error handling, unsafe source URLs, Unicode question length and timeout classification while reading a response body. Before PR preparation, all 23 frontend tests passed on the current V2 base, including the existing publications integration fixture; that fixture simulates the publications API, not Gemini.
 - Astro type checking completed with zero errors, warnings or hints. The updated static build completed; existing Shiki/CSP build warnings remain separate from the type-check result.
 
-### Browser checks with a simulated API
+#### Browser checks with a simulated API
 
 A temporary server at `http://127.0.0.1:4322` served the V2 static build and intercepted assistant requests only in that test environment. It did not call Gemini, change the normal Astro application on port 4321, or modify backend authentication/CSRF.
 
@@ -76,7 +83,7 @@ Browser testing found that a new answer could remain below the visible area in a
 
 The browser tool stopped when preparing responsive-device emulation because it could not determine the Chrome URL with sufficient confidence. A dedicated phone viewport, visual error states and post-fix focus/scroll behavior remain unverified. This is partial browser validation, not completed mobile or accessibility acceptance testing.
 
-### Real integration status
+#### Real integration status
 
 An earlier minimal direct Gemini API smoke test returned HTTP 200 for a generic prompt. It did not exercise Spring Boot, the authorized knowledge base, source validation or the Astro proxy.
 
@@ -84,7 +91,7 @@ Local OAuth variables have been configured outside the repository. The API was s
 
 The user subsequently reported successful manual checks of a technologies answer in Portuguese, an absent-salary-information answer in English and use in a narrow window. These are user-reported runtime checks, separate from automated simulations. No captured response/source audit or completed GitHub browser-login verification was produced by the agent. Do not treat mocked tests as proof of live Gemini integration or general factual accuracy.
 
-### Remaining work
+#### Remaining work at that time
 
 1. Verify the complete GitHub OAuth browser login; local configuration and API startup are confirmed, without weakening authentication or CSRF.
 2. When explicitly authorized, capture and audit live v1 response metadata, source selection and exact insufficient-knowledge wording; the user's manual PT/EN checks are recorded above.
@@ -94,7 +101,7 @@ The user subsequently reported successful manual checks of a technologies answer
 
 The temporary simulation server was stopped and port 4322 was confirmed without a listener. Its fixtures are not part of normal application behavior. Astro on port 4321 and development PostgreSQL on port 15432 were preserved. The API was subsequently started locally on port 8080. Publication has not been performed.
 
-## Mobile regression review — 2026-11-13
+### Mobile regression review — 2026-11-13
 
 The current V2 static build was reviewed in Chrome responsive emulation at 360 × 653 CSS pixels, in the dark theme. An isolated Python HTTP server at `127.0.0.1:4322` served `dist` and answered only synthetic assistant requests. It did not proxy to Spring Boot, call Gemini, use an AI key, send mail or modify the normal API on 8080 or Astro on 4321.
 
@@ -111,9 +118,17 @@ Verified in English: the dialog and controls fit the same phone viewport, and a 
 
 The simulator was stopped after review. Expected 503 and 429 entries in DevTools came from deliberate fixtures. Public recommendations remained empty through the normal Astro/API route. Existing real GitHub OAuth checks were completed during the recommendation/inbox workflow; the earlier OAuth-pending entry above is historical.
 
-Still pending: real PT/EN model-answer/source fidelity audit, exact live fallback verification, light-theme and broader keyboard/accessibility review, trusted production proxy validation and authorized V2 release preparation. No main merge, production deployment or real Gemini query occurred in this stage.
+Still pending at that checkpoint: real PT/EN model-answer/source fidelity audit, exact live fallback verification, light-theme and broader keyboard/accessibility review, trusted production proxy validation and authorized V2 release preparation. No main merge, production deployment or real Gemini query occurred in this stage.
 
-## Live provider and HTTP audit — 2026-11-13
+### Light theme and keyboard review — 2026-11-13
+
+The normal local Astro site on port 4321 was reviewed in Chrome at 360 × 653 CSS pixels. The Portuguese and English assistant dialogs were legible in the light theme, with the question field, submission control and contact link fitting within the horizontally bounded dialog. Vertical scrolling remains available. No question was submitted and no Gemini request was made.
+
+In Portuguese, opening the dialog focused the question field. Tab showed a visible focus indicator on the submit button and then the contact link, scrolling the latter into view. Closing with the visible close button returned focus to the launch button, as confirmed by reopening with Enter. Escape closed the dialog and displayed the launch button's focus indicator. Escape and restored launch focus were also checked in English. Chrome's own browser controls remained reachable; this was not a full tab-order or assistive-technology audit.
+
+No functional change was required. Response/error states in the light theme, screen-reader testing, physical-device testing, the real PT/EN answer/source audit and exact live fallback verification remain pending. Earlier dark-theme simulated-response evidence remains separate from this no-request review. Production and main were unchanged.
+
+### Live provider and HTTP audit — 2026-11-13
 
 João configured the existing Gemini key in the Windows environment. It was read privately into child process environments, not printed, committed or placed in browser variables. AI Studio showed the existing development project/key on the Free tier; no key or billing setting was created or changed by this audit.
 
@@ -133,3 +148,7 @@ A separate Spring process used current compiled classes on loopback 8081, a new 
 No live rate limit, outage or timeout was induced; simulated tests remain their evidence. This sample does not guarantee general model factual accuracy. Broader UI approval, deployment quotas/proxy settings and authorized release remain pending.
 
 The isolated API and temporary Astro were stopped, synthetic database retained. The habitual API was deliberately repackaged/restarted with the key, 30-minute session and existing isolated review database. Its JAR contains Guava 33.7.2-android. Contact intake, SMTP, retention, visits, dispatch and profile refresh stay disabled. Health was UP, anonymous admin 401 and habitual site 200. No VM/main/deploy/email change occurred. Raw reports remain in ignored staging and contain authorized profile questions/answers, not credentials.
+
+### Release acceptance and production — 2026-11-14
+
+The built assistant UI passed 48 controlled cases (EN/PT × light/dark × answered, insufficient knowledge, the eight contract error codes, transport failure and a malformed response) at 360 × 653 with reduced motion and intercepted HTTP; details are in `portfolio/docs/validation.md`. On the preview, real Portuguese questions were answered with sources and the salary question fell back without inventing a value. The shared rate-limit bucket found on the preview (every visitor keyed on the Docker gateway) was fixed with `ClientAddressKey`; 152 API tests passed. The cutover to joaoabreu.dev was completed on 2026-11-14 (see `portfolio/docs/v2-release-checklist.md`).

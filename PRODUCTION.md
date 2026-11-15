@@ -2,7 +2,7 @@
 
 Run these commands on the new VM, in `/opt/portfolio-api`. Use `compose.production.yaml` explicitly; `compose.yaml` remains local development only.
 
-Create `.env` with mode `600`, a generated PostgreSQL password, and the variables listed in `.env.production.example`. Keep real credentials on the VM. Do not commit `.env` or paste its contents into chat. Use a separate GitHub OAuth application for the production callback. The `v2.joaoabreu.dev` URLs are the intended preview target; DNS, TLS and nginx routing must be configured before testing login.
+Create `.env` with mode `600`, a generated PostgreSQL password, and the variables listed in `.env.production.example`. Keep real credentials on the VM. Do not commit `.env` or paste its contents into chat. Use a separate GitHub OAuth application for the production callback. Since the cutover on 2026-11-14 this VM serves `joaoabreu.dev` (and the `v2.joaoabreu.dev` preview); the OAuth application lists both callbacks.
 
 Validate without printing resolved secrets:
 
