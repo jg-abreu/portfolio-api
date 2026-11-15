@@ -12,19 +12,13 @@ With `PORTFOLIO_PUBLICATION_ENABLED=true` and a private `PUBLICATION_GITHUB_TOKE
 
 Dispatch is at least once: an interrupted connection or process crash after GitHub acceptance may create duplicate runs. The receiving workflow must serialize updates and safely rebuild from the latest selected source. A 200/204 response means GitHub accepted a dispatch; later workflow failure is not automatically retried by this queue. Its static manifests will still identify items as pending. Operators must review the Actions failure and rerun after fixing its cause.
 
-## Receiving workflow and enabling
+## Receiving workflow: live since 2026-11-15
 
-The worker dispatches the site's existing `deploy.yml` on `main` (`POST /repos/jg-abreu/portfolio/actions/workflows/deploy.yml/dispatches`, ref `main`). That workflow already accepts `workflow_dispatch`, builds from the published API data, fails before replacing the served release when a source is unavailable, and serializes runs with `concurrency: deploy`. Enable it with `PUBLICATION_ENABLED=true` and a fine-grained `PUBLICATION_GITHUB_TOKEN` limited to `jg-abreu/portfolio` with Actions read and write; do not reuse the profile-card token or the OAuth secret.
+The worker dispatches the site's `deploy.yml` on `main` (`POST /repos/jg-abreu/portfolio/actions/workflows/deploy.yml/dispatches`, ref `main`). That workflow accepts `workflow_dispatch`, builds from the published API data (`PROJECTS_API_URL` and `RECOMMENDATIONS_API_URL`), fails before replacing the served release when a source is unavailable, and serializes runs with `concurrency: deploy`.
 
-GitHub accepts manual events only for a workflow present on the default branch. Since the V2 cutover on 2026-11-14, `deploy.yml` with `workflow_dispatch` is on `main`, so the receiving side exists; the dispatch writes the live site. A missing or renamed workflow returns an error and leaves the request queued.
+Production enabled it at 00:07 UTC on 2026-11-15: API PR jg-abreu/portfolio-api#20 deployed, `PUBLICATION_ENABLED=true` and a fine-grained `PUBLICATION_GITHUB_TOKEN` limited to `jg-abreu/portfolio` with Actions read and write, created by João and kept only in the VM's private `.env`. The four queued requests were dispatched and run 43657420485 (`workflow_dispatch` on `main`) succeeded, with the site answering 200.
 
-João's checklist for enabling the dispatcher on the production VM (infrastructure work, done by hand):
-
-- Create the fine-grained token privately, limited to `jg-abreu/portfolio` with Actions read and write, and note its expiration. Do not reuse the profile-card token or the OAuth secret.
-- Inspect queued generations before enabling the worker: earlier selections may already have recorded requests. Never erase a real pending request to simplify a test.
-- Set `PUBLICATION_ENABLED=true` and the token in the VM's `.env`, then recreate both API containers.
-- Verify select → dispatch → successful deploy run → matching served manifest (`/project-publications.json` or `/recommendation-publications.json`), then withdrawal → absence. Confirm that a failed build leaves the served release intact.
-- Restore/save only validated public GitHub/blog caches across CI runs; never cache private environments, admin responses or credentials.
+Not yet exercised live: a deliberately failed build keeping the served release, and withdrawal → absence from the served manifest. Keep track of the token's expiration; do not reuse the profile-card token or the OAuth secret.
 
 References: [workflow dispatch REST API](https://docs.github.com/en/rest/actions/workflows), [events that trigger workflows](https://docs.github.com/en/actions/reference/workflows-and-actions/events-that-trigger-workflows).
 
