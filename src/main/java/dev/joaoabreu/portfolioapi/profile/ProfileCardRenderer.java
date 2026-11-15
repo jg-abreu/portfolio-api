@@ -3,19 +3,115 @@ package dev.joaoabreu.portfolioapi.profile;
 import java.nio.charset.StandardCharsets;
 import java.security.MessageDigest;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.HexFormat;
 import java.util.List;
 import java.util.Locale;
 import dev.joaoabreu.portfolioapi.profile.ProfileCardSettings.Block;
+import dev.joaoabreu.portfolioapi.profile.ProfileCardSettings.Emphasis;
+import dev.joaoabreu.portfolioapi.profile.ProfileCardSettings.Line;
 
 final class ProfileCardRenderer {
-    static final int WIDTH = 900, GAP = 20, TOP = 150, HALF = 400, FULL = 820, PAD = 22, CHIP_GAP = 12;
-    static final int LEFT = 40, RIGHT = 460, TEXT_BOX = HALF - 2 * PAD, CHIP_ROW = FULL - 2 * PAD, CHIP_PAD = 20;
+    static final int WIDTH = 900, GAP = 20, TOP = 150, FULL = 820, PAD = 22, CHIP_GAP = 12, CHIP_PAD = 20;
+    static final int LEFT = 40, COLUMNS = 6, COLUMN = (FULL - (COLUMNS - 1) * GAP) / COLUMNS;
+    static final int CHIP_HEIGHT = 38, CHIP_ROW_GAP = 10;
 
     private record Palette(String bg, String border, String panel, String chip, String text, String muted, String foot,
             String stroke, String strong, String light, String monogramBg, List<String> chips) {}
 
+    record Placed(Block block, int x, int y, int width, int height, int span) {}
+
     private ProfileCardRenderer() {}
+
+    static int span(int columns) { return columns * COLUMN + (columns - 1) * GAP; }
+
+    static List<Placed> layout(List<Block> blocks) {
+        List<Placed> placed = new ArrayList<>();
+        List<Block> row = new ArrayList<>();
+        List<Integer> spans = new ArrayList<>();
+        int used = 0, y = TOP;
+        for (Block block : blocks) {
+            if (used + block.width().span > COLUMNS) {
+                y = closeRow(row, spans, y, placed);
+                used = 0;
+            }
+            row.add(block);
+            spans.add(block.width().span);
+            used += block.width().span;
+        }
+        closeRow(row, spans, y, placed);
+        return placed;
+    }
+
+    private static int closeRow(List<Block> row, List<Integer> spans, int y, List<Placed> placed) {
+        if (row.isEmpty()) return y;
+        int used = spans.stream().mapToInt(Integer::intValue).sum();
+        spans.set(spans.size() - 1, spans.getLast() + COLUMNS - used);
+        int height = 0;
+        for (int i = 0; i < row.size(); i++) height = Math.max(height, natural(row.get(i), span(spans.get(i))));
+        int column = 0;
+        for (int i = 0; i < row.size(); i++) {
+            placed.add(new Placed(row.get(i), LEFT + column * (COLUMN + GAP), y, span(spans.get(i)), height, spans.get(i)));
+            column += spans.get(i);
+        }
+        row.clear();
+        spans.clear();
+        return y + height + GAP;
+    }
+
+    static int natural(Block block, int width) {
+        return switch (block.kind()) {
+            case CONTRIBUTIONS, LATEST_REPOSITORY -> 120;
+            case STACK -> {
+                int rows = chipRows(block.stack(), width - 2 * PAD).size();
+                yield 55 + rows * CHIP_HEIGHT + (rows - 1) * CHIP_ROW_GAP + 23;
+            }
+            case TEXT -> lineOffsets(block.lines()).getLast() + 30;
+        };
+    }
+
+    static List<Integer> lineOffsets(List<Line> lines) {
+        List<Integer> offsets = new ArrayList<>();
+        int y = 69;
+        for (int i = 0; i < lines.size(); i++) {
+            if (i > 0) y += lines.get(i).emphasis() == Emphasis.STRONG ? 34 : 25;
+            offsets.add(y);
+        }
+        return offsets;
+    }
+
+    static List<List<Integer>> chipRows(List<String> stack, int available) {
+        List<List<Integer>> rows = new ArrayList<>();
+        List<Integer> row = new ArrayList<>();
+        double used = 0;
+        for (int i = 0; i < stack.size(); i++) {
+            double width = chipWidth(stack.get(i));
+            if (!row.isEmpty() && used + CHIP_GAP + width > available) {
+                rows.add(row);
+                row = new ArrayList<>();
+                used = 0;
+            }
+            used += (row.isEmpty() ? 0 : CHIP_GAP) + width;
+            row.add(i);
+        }
+        if (!row.isEmpty()) rows.add(row);
+        return rows;
+    }
+
+    static double chipWidth(String chip) { return width(chip, 14, true) + 2 * CHIP_PAD; }
+
+    static int[] chipWidths(List<String> stack, List<Integer> row, int available) {
+        double sum = 0;
+        for (int index : row) sum += chipWidth(stack.get(index));
+        int free = available - CHIP_GAP * (row.size() - 1);
+        int[] widths = new int[row.size()];
+        int used = 0;
+        for (int i = 0; i < row.size(); i++) {
+            widths[i] = i == row.size() - 1 ? free - used : (int) Math.floor(chipWidth(stack.get(row.get(i))) * free / sum);
+            used += widths[i];
+        }
+        return widths;
+    }
 
     static ProfileCardCache.Card render(ProfileCardSettings settings, GitHubProfileSource.Data data, Instant fetchedAt) {
         Palette p = palette(settings);
@@ -24,29 +120,12 @@ final class ProfileCardRenderer {
         String status = fetchedAt == null ? "GitHub data not loaded" : "GitHub snapshot: " + fetchedAt;
 
         var blocks = new StringBuilder();
-        int left = TOP, right = TOP;
-        for (Block block : settings.blocks()) {
-            int x, y, width;
-            if (block.full) {
-                y = Math.max(left, right);
-                x = LEFT;
-                width = FULL;
-                left = right = y + block.height + GAP;
-            } else if (left <= right) {
-                y = left;
-                x = LEFT;
-                width = HALF;
-                left = y + block.height + GAP;
-            } else {
-                y = right;
-                x = RIGHT;
-                width = HALF;
-                right = y + block.height + GAP;
-            }
-            blocks.append(rect(x, y, width, block.height, 12, p.panel(), p.border()));
-            blocks.append(content(block, settings, p, x + PAD, y, count, repo));
+        int bottom = TOP;
+        for (Placed placed : layout(settings.blocks())) {
+            blocks.append("    ").append(rect(placed.x(), placed.y(), placed.width(), placed.height(), 12, p.panel(), p.border()));
+            blocks.append(content(placed, p, count, repo));
+            bottom = Math.max(bottom, placed.y() + placed.height());
         }
-        int bottom = Math.max(left, right) - GAP;
         int height = bottom + 76;
 
         String title = settings.name() + " — " + settings.role();
@@ -67,64 +146,71 @@ final class ProfileCardRenderer {
         return new ProfileCardCache.Card(svg, etag(svg));
     }
 
-    private static String content(Block block, ProfileCardSettings s, Palette p, int x, int y, String count, String repo) {
-        return switch (block) {
-            case CONTRIBUTIONS -> label(x, y + 34, p, "CONTRIBUTIONS · LAST YEAR") + "    " + text(x, y + 85, 36, true, p.strong(), null, count);
-            case LATEST_REPOSITORY -> label(x, y + 34, p, "LATEST PUBLIC REPOSITORY")
+    private static String content(Placed placed, Palette p, String count, String repo) {
+        Block block = placed.block();
+        int x = placed.x() + PAD, y = placed.y(), inner = placed.width() - 2 * PAD;
+        String label = label(x, y + 34, p, block.title());
+        return switch (block.kind()) {
+            case CONTRIBUTIONS -> label + "    " + text(x, y + 85, 36, true, p.strong(), null, count);
+            case LATEST_REPOSITORY -> label
                     + "    <text x=\"" + x + "\" y=\"" + (y + 72) + "\" font-family=\"monospace\" font-size=\"16\" font-weight=\"700\" fill=\""
-                    + p.text() + "\">" + xml(shorten(repo)) + "</text>\n";
-            case STACK -> label(x, y + 33, p, "TECH STACK") + chips(s.stack(), p, x, y + 55);
-            case EDUCATION -> label(x, y + 33, p, "EDUCATION & PROJECTS")
-                    + "    " + text(x, y + 69, 16, true, p.text(), null, s.educationTitle())
-                    + "    " + text(x, y + 94, 14, false, p.muted(), null, s.educationDetail())
-                    + "    " + text(x, y + 137, 16, true, p.text(), null, s.projectTitle())
-                    + "    " + text(x, y + 163, 14, false, p.muted(), null, s.projectStack())
-                    + "    " + text(x, y + 188, 14, false, p.muted(), null, s.projectNote());
-            case FOCUS -> label(x, y + 33, p, "CURRENT FOCUS") + "    " + text(x, y + 69, 16, true, p.text(), null, s.focus());
-            case OPPORTUNITY -> label(x, y + 33, p, "OPEN TO OPPORTUNITIES") + "    " + text(x, y + 69, 16, true, p.text(), null, s.opportunity());
+                    + p.text() + "\">" + xml(shorten(repo, (int) (inner / (16 * 0.62)))) + "</text>\n";
+            case STACK -> label + chips(block.stack(), p, x, y + 55, inner);
+            case TEXT -> {
+                var out = new StringBuilder(label);
+                List<Integer> offsets = lineOffsets(block.lines());
+                for (int i = 0; i < block.lines().size(); i++) {
+                    Line line = block.lines().get(i);
+                    boolean strong = line.emphasis() == Emphasis.STRONG;
+                    out.append("    ").append(text(x, y + offsets.get(i), strong ? 16 : 14, strong,
+                            strong ? p.text() : p.muted(), null, line.text()));
+                }
+                yield out.toString();
+            }
         };
     }
 
-    private static String chips(List<String> stack, Palette p, int x, int y) {
-        int[] widths = chipWidths(stack);
+    private static String chips(List<String> stack, Palette p, int x, int y, int available) {
         var out = new StringBuilder();
-        int cursor = x;
-        for (int i = 0; i < stack.size(); i++) {
-            out.append("    ").append(rect(cursor, y, widths[i], 38, 8, p.chip(), null));
-            out.append("    ").append(text(cursor + widths[i] / 2, y + 25, 14, true, p.chips().get(i % p.chips().size()), "middle", stack.get(i)));
-            cursor += widths[i] + CHIP_GAP;
+        int top = y;
+        for (List<Integer> row : chipRows(stack, available)) {
+            int[] widths = chipWidths(stack, row, available);
+            int cursor = x;
+            for (int i = 0; i < row.size(); i++) {
+                int index = row.get(i);
+                out.append("    ").append(rect(cursor, top, widths[i], CHIP_HEIGHT, 8, p.chip(), null));
+                out.append("    ").append(text(cursor + widths[i] / 2, top + 25, 14, true,
+                        p.chips().get(index % p.chips().size()), "middle", stack.get(index)));
+                cursor += widths[i] + CHIP_GAP;
+            }
+            top += CHIP_HEIGHT + CHIP_ROW_GAP;
         }
         return out.toString();
-    }
-
-    static int[] chipWidths(List<String> stack) {
-        double[] natural = new double[stack.size()];
-        double sum = 0;
-        for (int i = 0; i < natural.length; i++) sum += natural[i] = width(stack.get(i), 14, true) + 2 * CHIP_PAD;
-        int available = CHIP_ROW - CHIP_GAP * (stack.size() - 1);
-        int[] widths = new int[natural.length];
-        int used = 0;
-        for (int i = 0; i < natural.length; i++) {
-            widths[i] = i == natural.length - 1 ? available - used : (int) Math.floor(natural[i] * available / sum);
-            used += widths[i];
-        }
-        return widths;
     }
 
     static void checkFits(ProfileCardSettings s) {
         fits("name", s.name(), 32, true, WIDTH - 40 - 142);
         fits("headline", s.headline(), 17, false, WIDTH - 40 - 142);
         fits("monogram", s.monogram(), 25, true, 64);
-        fits("educationTitle", s.educationTitle(), 16, true, TEXT_BOX);
-        fits("educationDetail", s.educationDetail(), 14, false, TEXT_BOX);
-        fits("projectTitle", s.projectTitle(), 16, true, TEXT_BOX);
-        fits("projectStack", s.projectStack(), 14, false, TEXT_BOX);
-        fits("projectNote", s.projectNote(), 14, false, TEXT_BOX);
-        fits("focus", s.focus(), 16, true, TEXT_BOX);
-        fits("opportunity", s.opportunity(), 16, true, TEXT_BOX);
-        double natural = CHIP_GAP * (s.stack().size() - 1);
-        for (String chip : s.stack()) natural += width(chip, 14, true) + 2 * CHIP_PAD;
-        if (natural > CHIP_ROW) throw new ProfileCardSettings.Invalid("stack", "too wide for one row");
+        List<Placed> placed = layout(s.blocks());
+        for (int i = 0; i < placed.size(); i++) {
+            Block block = placed.get(i).block();
+            int inner = placed.get(i).width() - 2 * PAD;
+            String field = "blocks[" + i + "]";
+            if (labelWidth(block.title()) > inner) throw new ProfileCardSettings.Invalid(field + ".title", "too wide for the card");
+            for (int j = 0; j < block.lines().size(); j++) {
+                Line line = block.lines().get(j);
+                boolean strong = line.emphasis() == Emphasis.STRONG;
+                fits(field + ".lines[" + j + "]", line.text(), strong ? 16 : 14, strong, inner);
+            }
+            for (String chip : block.stack())
+                if (chipWidth(chip) > inner) throw new ProfileCardSettings.Invalid(field + ".stack", "too wide for the card");
+        }
+    }
+
+    static double labelWidth(String title) {
+        String upper = title.toUpperCase(Locale.ROOT);
+        return width(upper, 12, true) + upper.codePointCount(0, upper.length());
     }
 
     private static void fits(String field, String value, double size, boolean bold, double max) {
@@ -165,7 +251,7 @@ final class ProfileCardRenderer {
 
     private static String label(int x, int y, Palette p, String value) {
         return "    <text x=\"" + x + "\" y=\"" + y + "\" font-size=\"12\" font-weight=\"700\" letter-spacing=\"1\" fill=\""
-                + p.muted() + "\">" + xml(value) + "</text>\n";
+                + p.muted() + "\">" + xml(value.toUpperCase(Locale.ROOT)) + "</text>\n";
     }
 
     private static String text(int x, int y, int size, boolean bold, String fill, String anchor, String value) {
@@ -179,7 +265,10 @@ final class ProfileCardRenderer {
                 + "\" fill=\"" + fill + "\"" + (stroke == null ? "" : " stroke=\"" + stroke + "\"") + "/>\n";
     }
 
-    private static String shorten(String value) { return value.length() <= 32 ? value : value.substring(0, 29) + "…"; }
+    private static String shorten(String value, int max) {
+        int limit = Math.max(8, Math.min(32, max));
+        return value.length() <= limit ? value : value.substring(0, limit - 1) + "…";
+    }
 
     static String xml(String value) {
         return value.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")

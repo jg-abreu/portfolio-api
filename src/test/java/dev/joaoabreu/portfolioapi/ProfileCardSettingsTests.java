@@ -55,6 +55,18 @@ class ProfileCardSettingsTests {
 
     ObjectNode defaults() throws Exception { return (ObjectNode) view().path("defaults").deepCopy(); }
 
+    static ObjectNode line(ObjectNode settings, String id, String text) {
+        for (JsonNode block : settings.path("blocks"))
+            if (block.path("id").asString().equals(id)) ((ObjectNode) block.path("lines").path(0)).put("text", text);
+        return settings;
+    }
+
+    static String firstLine(JsonNode settings, String id) {
+        for (JsonNode block : settings.path("blocks"))
+            if (block.path("id").asString().equals(id)) return block.path("lines").path(0).path("text").asString();
+        return null;
+    }
+
     String publicSvg() throws Exception {
         return mvc.perform(get("/api/profile-card.svg")).andExpect(status().isOk()).andReturn().getResponse().getContentAsString();
     }
@@ -73,7 +85,7 @@ class ProfileCardSettingsTests {
     void draftIsPrivateUntilPublishedThenThePublicCardChanges() throws Exception {
         String before = publicSvg();
         ObjectNode settings = defaults();
-        settings.put("focus", "Synthetic focus");
+        line(settings, "focus", "Synthetic focus");
         settings.put("accent", "GREEN");
         mvc.perform(put(BASE + "/draft").with(csrf()).contentType(MediaType.APPLICATION_JSON).content(draft(0, settings)))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.version").value(1)).andExpect(jsonPath("$.pending").value(true));
@@ -81,7 +93,7 @@ class ProfileCardSettingsTests {
 
         mvc.perform(post(BASE + "/publish").with(csrf()).contentType(MediaType.APPLICATION_JSON).content("{\"version\":1}"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.pending").value(false))
-                .andExpect(jsonPath("$.published.focus").value("Synthetic focus"));
+                .andExpect(jsonPath("$.published.blocks[5].lines[0].text").value("Synthetic focus"));
         String after = publicSvg();
         assertNotEquals(before, after);
         assertTrue(after.contains("Synthetic focus") && after.contains("#22c55e"));
@@ -90,16 +102,16 @@ class ProfileCardSettingsTests {
     @Test
     void staleVersionsAreRejectedWithoutOverwriting() throws Exception {
         ObjectNode first = defaults();
-        first.put("focus", "Saved in tab A");
+        line(first, "focus", "Saved in tab A");
         mvc.perform(put(BASE + "/draft").with(csrf()).contentType(MediaType.APPLICATION_JSON).content(draft(0, first)))
                 .andExpect(status().isOk());
         ObjectNode second = defaults();
-        second.put("focus", "Stale tab B");
+        line(second, "focus", "Stale tab B");
         mvc.perform(put(BASE + "/draft").with(csrf()).contentType(MediaType.APPLICATION_JSON).content(draft(0, second)))
                 .andExpect(status().isConflict());
         mvc.perform(post(BASE + "/publish").with(csrf()).contentType(MediaType.APPLICATION_JSON).content("{\"version\":0}"))
                 .andExpect(status().isConflict());
-        assertEquals("Saved in tab A", view().path("draft").path("focus").asString());
+        assertEquals("Saved in tab A", firstLine(view().path("draft"), "focus"));
     }
 
     @Test
@@ -112,14 +124,32 @@ class ProfileCardSettingsTests {
         unknownBlock.putArray("blocks").add("SCRIPT");
         mvc.perform(put(BASE + "/draft").with(csrf()).contentType(MediaType.APPLICATION_JSON).content(draft(0, unknownBlock)))
                 .andExpect(status().isBadRequest());
+        ObjectNode tooWide = defaults();
+        ((ObjectNode) tooWide.path("blocks").path(6)).put("title", "W".repeat(40));
+        mvc.perform(put(BASE + "/draft").with(csrf()).contentType(MediaType.APPLICATION_JSON).content(draft(0, tooWide)))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.field").value("blocks[6].title"));
         assertEquals(0, view().path("version").asLong());
+    }
+
+    @Test
+    void storedSettingsFromTheFixedFieldEditorAreReadAsBlocks() throws Exception {
+        jdbc.update("UPDATE profile_card_settings SET draft = ?, published = ?",
+                "{\"theme\":\"LIGHT\",\"accent\":\"GREEN\",\"name\":\"João Abreu\",\"role\":\"Back-end Developer\","
+                        + "\"monogram\":\"JA\",\"headline\":\"Synthetic headline\",\"blocks\":[\"FOCUS\",\"STACK\"],"
+                        + "\"stack\":[\"Java\"],\"educationTitle\":\"E\",\"educationDetail\":\"D\",\"projectTitle\":\"P\","
+                        + "\"projectStack\":\"S\",\"projectNote\":\"N\",\"focus\":\"Legacy focus\",\"opportunity\":\"O\"}",
+                null);
+        JsonNode draft = view().path("draft");
+        assertEquals("LIGHT", draft.path("theme").asString());
+        assertEquals("Legacy focus", firstLine(draft, "focus"));
+        assertEquals("stack", draft.path("blocks").path(1).path("id").asString());
     }
 
     @Test
     void previewRendersUnsavedSettingsWithoutStoringThem() throws Exception {
         ObjectNode settings = defaults();
         settings.put("theme", "LIGHT");
-        settings.put("opportunity", "Preview only");
+        line(settings, "opportunity", "Preview only");
         String encoded = java.util.Base64.getUrlEncoder().withoutPadding()
                 .encodeToString(settings.toString().getBytes(java.nio.charset.StandardCharsets.UTF_8));
         String svg = mvc.perform(get(BASE + "/preview.svg").param("settings", encoded))
@@ -132,7 +162,7 @@ class ProfileCardSettingsTests {
         assertEquals(0, view().path("version").asLong());
         assertFalse(publicSvg().contains("Preview only"));
         mvc.perform(get(BASE + "/preview.svg").param("settings", "not-json")).andExpect(status().isBadRequest());
-        mvc.perform(get(BASE + "/preview.svg").param("settings", "A".repeat(9000))).andExpect(status().isBadRequest());
+        mvc.perform(get(BASE + "/preview.svg").param("settings", "A".repeat(17000))).andExpect(status().isBadRequest());
     }
 
     @Test
