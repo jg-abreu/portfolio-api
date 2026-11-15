@@ -26,7 +26,7 @@ services:
         max-size: "10m"
         max-file: "3"
 
-  api:
+  api: &api
     image: eclipse-temurin:21-jre
     profiles: [api]
     restart: unless-stopped
@@ -38,7 +38,8 @@ services:
         required: false
     ports:
       - "127.0.0.1:8080:8080"
-    environment:
+    environment: &api-environment
+      PORTFOLIO_INSTANCE_NAME: A
       SPRING_PROFILES_ACTIVE: production
       SPRING_DOCKER_COMPOSE_ENABLED: "false"
       SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/portfolio
@@ -83,12 +84,20 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-    mem_limit: 768m
+    mem_limit: 576m
     logging:
       driver: json-file
       options:
         max-size: "10m"
         max-file: "3"
+
+  api-b:
+    <<: *api
+    ports:
+      - "127.0.0.1:8081:8080"
+    environment:
+      <<: *api-environment
+      PORTFOLIO_INSTANCE_NAME: B
 
 networks:
   default:
