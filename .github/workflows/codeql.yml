@@ -1,8 +1,8 @@
-name: CodeQL V2
+name: CodeQL
 
 on:
   push:
-    branches: [feat/v2]
+    branches: [main]
     paths:
       - src/**
       - pom.xml
@@ -11,7 +11,7 @@ on:
       - mvnw.cmd
       - .github/workflows/codeql.yml
   pull_request:
-    branches: [feat/v2]
+    branches: [main]
   workflow_dispatch:
 
 permissions:
@@ -37,12 +37,12 @@ jobs:
           distribution: temurin
           java-version: '21'
           cache: maven
-      - uses: github/codeql-action/init@5895b2c9be147bc7f1c75ce72c5cb577febb1907
+      - uses: github/codeql-action/init@33d7b85da1a04171e211befe2c739303b9a4c066
         with:
           languages: java-kotlin
           build-mode: manual
           queries: security-extended
       - run: bash ./mvnw -B -DskipTests compile
-      - uses: github/codeql-action/analyze@5895b2c9be147bc7f1c75ce72c5cb577febb1907
+      - uses: github/codeql-action/analyze@33d7b85da1a04171e211befe2c739303b9a4c066
         with:
           category: /language:java-kotlin
