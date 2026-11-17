@@ -63,3 +63,11 @@ References:
 - https://developers.google.com/books/branding
 
 `GoogleBooksTests` covers bounded input/response handling, original order, fixed-origin URLs, configuration absence, throttling, provider errors and edition verification without network calls or real quota use. `GoogleBooksPublicationTests` verifies session/CSRF protection, reference-only publication and mutually exclusive cover sources with a mocked provider and disposable PostgreSQL. Actual search results, cover availability and account quota still require the user's key and a manual review.
+
+## Section pages and external links — 2026-11-17
+
+Migration V12 gives every section an address (`slug`, generated from the English title and kept unique; an explicit duplicate returns 409), an optional short EN/PT `description` (up to 200 characters) and a third kind, `LINK`: a section that points to an external HTTPS `url` (for example an Amazon list) and holds no items. Other kinds must have an empty `url`. Existing sections received a slug from their title.
+
+Books accept ratings from 0.5 to 5 in half steps and an optional `readIn` (`PT` or `EN`); items keep rating 0 and no reading language.
+
+The public snapshot is schema version 3: each section carries `slug`, `kind`, `url`, `en`/`pt` with `title` and `description`, and its items. `LINK` sections are listed even without items; the others only when something is published. Creating, editing, reordering or deleting a `LINK` section requests a new build.

@@ -76,8 +76,9 @@ class RecommendationTests {
                 .content(body(0, book("edited", true, key, "")))).andExpect(status().isOk());
         select(id, 0, 409);
         mvc.perform(get("/api/recommendations").with(anonymous())).andExpect(status().isOk())
-                .andExpect(jsonPath("$.schemaVersion").value(2))
+                .andExpect(jsonPath("$.schemaVersion").value(3))
                 .andExpect(jsonPath("$.sections[0].kind").value("BOOKS"))
+                .andExpect(jsonPath("$.sections[0].slug").value("books"))
                 .andExpect(jsonPath("$.sections[0].pt.title").value("Livros"))
                 .andExpect(jsonPath("$.sections[0].items[0].data.slug").value("sample"))
                 .andExpect(jsonPath("$.sections[0].items[0].data.rating").value(4))
@@ -114,6 +115,60 @@ class RecommendationTests {
         mvc.perform(get("/api/recommendations")).andExpect(jsonPath("$.sections[0].kind").value("ITEMS"))
                 .andExpect(jsonPath("$.sections[0].items[0].data.subtitle").value("Synthetic brand"))
                 .andExpect(jsonPath("$.sections[0].items[0].data.en.imageAlt").value("Photo of Synthetic keyboard"));
+    }
+
+    @Test
+    void booksTakeHalfStarsAndAnOptionalReadingLanguage() throws Exception {
+        var half = book("half", true, key, "");
+        half.put("rating", 4.5);
+        half.put("readIn", "EN");
+        select(create(half), 0, 200);
+        mvc.perform(get("/api/recommendations")).andExpect(jsonPath("$.sections[0].items[0].data.rating").value(4.5))
+                .andExpect(jsonPath("$.sections[0].items[0].data.readIn").value("EN"));
+        var odd = book("odd", true, key, "");
+        odd.put("rating", 4.3);
+        var tooHigh = book("high", true, key, "");
+        tooHigh.put("rating", 5.5);
+        var itemLanguage = item("item-language", "");
+        itemLanguage.put("readIn", "PT");
+        var badLanguage = book("bad-language", true, key, "");
+        badLanguage.put("readIn", "ES");
+        for (var invalid : List.of(odd, tooHigh, itemLanguage, badLanguage))
+            mvc.perform(post("/api/admin/recommendations").with(csrf()).contentType(MediaType.APPLICATION_JSON)
+                    .content(body(0, invalid))).andExpect(status().isBadRequest());
+    }
+
+    @Test
+    void externalLinkSectionsAppearWithoutItemsAndRefuseThem() throws Exception {
+        long before = jdbc.sql("SELECT requested_generation FROM publication_requests").query(Long.class).single();
+        mvc.perform(post("/api/admin/recommendation-sections").with(csrf()).contentType(MediaType.APPLICATION_JSON)
+                .content(sectionBody(0, "LINK", "Gear", "Equipamentos", "http://example.com/list"))).andExpect(status().isBadRequest());
+        String created = mvc.perform(post("/api/admin/recommendation-sections").with(csrf()).contentType(MediaType.APPLICATION_JSON)
+                .content(sectionBody(0, "LINK", "My gear", "Meu setup", "https://www.amazon.com.br/shop/example/list/1")))
+                .andExpect(status().isCreated()).andExpect(jsonPath("$.data.slug").value("my-gear"))
+                .andReturn().getResponse().getContentAsString();
+        long link = json.readTree(created).get("id").asLong();
+        mvc.perform(get("/api/recommendations")).andExpect(jsonPath("$.sections.length()").value(1))
+                .andExpect(jsonPath("$.sections[0].kind").value("LINK"))
+                .andExpect(jsonPath("$.sections[0].url").value("https://www.amazon.com.br/shop/example/list/1"))
+                .andExpect(jsonPath("$.sections[0].pt.title").value("Meu setup"));
+        var orphan = item("orphan", "");
+        orphan.put("sectionId", link);
+        mvc.perform(post("/api/admin/recommendations").with(csrf()).contentType(MediaType.APPLICATION_JSON)
+                .content(body(0, orphan))).andExpect(status().isBadRequest());
+        mvc.perform(post("/api/admin/recommendation-sections").with(csrf()).contentType(MediaType.APPLICATION_JSON)
+                .content(sectionBody(0, "ITEMS", "Setup", "Setup", "https://example.com"))).andExpect(status().isBadRequest());
+        assertTrue(jdbc.sql("SELECT requested_generation FROM publication_requests").query(Long.class).single() >= before);
+    }
+
+    @Test
+    void sectionAddressesAreGeneratedUniqueAndExplicitDuplicatesConflict() throws Exception {
+        long again = section("ITEMS", "Books", "Outros livros");
+        mvc.perform(get("/api/admin/recommendation-sections")).andExpect(jsonPath("$[?(@.id == " + again + ")].data.slug").value("books-2"));
+        var body = new HashMap<String, Object>(Map.of("version", 0, "data", Map.of("kind", "ITEMS",
+                "en", Map.of("title", "Tools"), "pt", Map.of("title", "Ferramentas"), "slug", "books")));
+        mvc.perform(post("/api/admin/recommendation-sections").with(csrf()).contentType(MediaType.APPLICATION_JSON)
+                .content(json.writeValueAsString(body))).andExpect(status().isConflict());
     }
 
     @Test
@@ -236,8 +291,11 @@ class RecommendationTests {
         return json.readTree(result).get("id").asLong();
     }
     private String sectionBody(long version, String kind, String en, String pt) {
+        return sectionBody(version, kind, en, pt, "");
+    }
+    private String sectionBody(long version, String kind, String en, String pt, String url) {
         return json.writeValueAsString(Map.of("version", version, "data", Map.of("kind", kind,
-                "en", Map.of("title", en), "pt", Map.of("title", pt))));
+                "en", Map.of("title", en, "description", "Short " + en), "pt", Map.of("title", pt, "description", "Curta " + pt), "url", url)));
     }
     private long create(Map<String, Object> data) throws Exception {
         String result = mvc.perform(post("/api/admin/recommendations").with(csrf()).contentType(MediaType.APPLICATION_JSON)
