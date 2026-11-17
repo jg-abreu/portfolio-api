@@ -50,11 +50,14 @@ public class RecommendationService {
         jdbc.sql("LOCK TABLE recommendation_sections IN SHARE ROW EXCLUSIVE MODE").update();
         if (jdbc.sql("SELECT COUNT(*) FROM recommendation_sections").query(Long.class).single() >= MAX_SECTIONS)
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Section limit reached");
-        SectionData data = request.data();
+        SectionData data = section(request.data(), null);
         long id = jdbc.sql("""
-                INSERT INTO recommendation_sections(kind, en_title, pt_title, display_order)
-                VALUES (:kind, :en, :pt, (SELECT COALESCE(MAX(display_order) + 1, 0) FROM recommendation_sections)) RETURNING id""")
-                .param("kind", data.kind().name()).param("en", data.en().title().strip()).param("pt", data.pt().title().strip())
+                INSERT INTO recommendation_sections(kind, en_title, pt_title, en_description, pt_description, slug, url, display_order)
+                VALUES (:kind, :en, :pt, :enDescription, :ptDescription, :slug, :url,
+                (SELECT COALESCE(MAX(display_order) + 1, 0) FROM recommendation_sections)) RETURNING id""")
+                .param("kind", data.kind().name()).param("en", data.en().title()).param("pt", data.pt().title())
+                .param("enDescription", data.en().description()).param("ptDescription", data.pt().description())
+                .param("slug", data.slug()).param("url", data.url())
                 .query(Long.class).single();
         return findSection(id, false);
     }
@@ -65,12 +68,14 @@ public class RecommendationService {
         if (current.version() != request.version()) throw conflict();
         if (current.data().kind() != request.data().kind() && current.items() + archivedItems(id) > 0)
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Move or remove the items before changing the section type");
+        SectionData data = section(request.data(), id);
         jdbc.sql("""
-                UPDATE recommendation_sections SET kind=:kind, en_title=:en, pt_title=:pt, version=version+1,
-                updated_at=CURRENT_TIMESTAMP WHERE id=:id""")
-                .param("kind", request.data().kind().name()).param("en", request.data().en().title().strip())
-                .param("pt", request.data().pt().title().strip()).param("id", id).update();
-        if (hasPublications(id)) requests.changed();
+                UPDATE recommendation_sections SET kind=:kind, en_title=:en, pt_title=:pt, en_description=:enDescription,
+                pt_description=:ptDescription, slug=:slug, url=:url, version=version+1, updated_at=CURRENT_TIMESTAMP WHERE id=:id""")
+                .param("kind", data.kind().name()).param("en", data.en().title()).param("pt", data.pt().title())
+                .param("enDescription", data.en().description()).param("ptDescription", data.pt().description())
+                .param("slug", data.slug()).param("url", data.url()).param("id", id).update();
+        if (hasPublications(id) || data.kind() == SectionKind.LINK || current.data().kind() == SectionKind.LINK) requests.changed();
         return findSection(id, false);
     }
 
@@ -81,6 +86,24 @@ public class RecommendationService {
         if (current.items() + archivedItems(id) > 0)
             throw new ResponseStatusException(HttpStatus.CONFLICT, "Remove the items before deleting the section");
         jdbc.sql("DELETE FROM recommendation_sections WHERE id=:id").param("id", id).update();
+        if (current.data().kind() == SectionKind.LINK) requests.changed();
+    }
+
+    private SectionData section(SectionData data, Long id) {
+        boolean link = data.kind() == SectionKind.LINK;
+        if (link && (data.url().isEmpty() || !safeLink(data.url())))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "External sections need a credential-free HTTPS link");
+        if (!link && !data.url().isEmpty())
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Only external sections have a link");
+        String base = data.slug().isEmpty() ? slugify(data.en().title()) : data.slug();
+        if (base.length() > 60) base = base.substring(0, 60).replaceAll("-+$", "");
+        String slug = base;
+        for (int suffix = 2; jdbc.sql("SELECT COUNT(*) FROM recommendation_sections WHERE slug=:slug AND id <> :id")
+                .param("slug", slug).param("id", id == null ? -1 : id).query(Long.class).single() > 0; suffix++) {
+            if (!data.slug().isEmpty()) throw new ResponseStatusException(HttpStatus.CONFLICT, "Section address already in use");
+            slug = base + "-" + suffix;
+        }
+        return new SectionData(data.kind(), data.en(), data.pt(), slug, data.url());
     }
 
     @Transactional
@@ -91,7 +114,9 @@ public class RecommendationService {
         for (int index = 0; index < order.ids().size(); index++)
             jdbc.sql("UPDATE recommendation_sections SET display_order=:order WHERE id=:id")
                     .param("order", index).param("id", order.ids().get(index)).update();
-        if (jdbc.sql("SELECT COUNT(*) FROM recommendation_publications").query(Long.class).single() > 0) requests.changed();
+        if (jdbc.sql("SELECT COUNT(*) FROM recommendation_publications").query(Long.class).single() > 0
+                || existing.size() > 0 && jdbc.sql("SELECT COUNT(*) FROM recommendation_sections WHERE kind='LINK'").query(Long.class).single() > 0)
+            requests.changed();
         return sections();
     }
 
@@ -199,11 +224,12 @@ public class RecommendationService {
                 }).list();
         List<PublicSection> sections = new ArrayList<>();
         for (Section section : sections()) {
-            List<Publication> published = items.get(section.id());
-            if (published == null || published.isEmpty()) continue;
-            sections.add(new PublicSection(section.id(), section.data().kind(), section.data().en(), section.data().pt(), List.copyOf(published)));
+            List<Publication> published = items.getOrDefault(section.id(), List.of());
+            if (section.data().kind() != SectionKind.LINK && published.isEmpty()) continue;
+            sections.add(new PublicSection(section.id(), section.data().slug(), section.data().kind(), section.data().url(),
+                    section.data().en(), section.data().pt(), List.copyOf(published)));
         }
-        return new Snapshot(2, sections);
+        return new Snapshot(3, sections);
     }
 
     public List<Summary> summaries() {
@@ -220,29 +246,34 @@ public class RecommendationService {
 
     private Details normalize(Details data, Long id) {
         Section section = findSection(data.sectionId(), false);
+        if (section.data().kind() == SectionKind.LINK)
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "External link sections have no items");
         boolean book = section.data().kind() == SectionKind.BOOKS;
-        if (book && (data.rating() < 1 || data.bookGroup() == null))
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Books need a rating from 1 to 5 and a group");
-        if (!book && (data.rating() != 0 || data.bookGroup() != null || hasBook(data)))
-            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Only books have ratings, groups and Google Books references");
+        boolean halfStep = Math.rint(data.rating() * 2) == data.rating() * 2;
+        if (book && (data.rating() < 0.5 || data.rating() > 5 || !halfStep || data.bookGroup() == null))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Books need a rating from 0.5 to 5 in half steps and a group");
+        if (!book && (data.rating() != 0 || data.bookGroup() != null || data.readIn() != null || hasBook(data)))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Only books have ratings, groups, reading languages and Google Books references");
         if (hasBook(data) && !data.imageKey().isEmpty())
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Choose either a book cover or an uploaded image");
-        if (!data.url().isEmpty()) {
-            try {
-                URI uri = URI.create(data.url());
-                if (!"https".equalsIgnoreCase(uri.getScheme()) || uri.getHost() == null || uri.getRawUserInfo() != null)
-                    throw new IllegalArgumentException();
-            } catch (IllegalArgumentException exception) {
-                throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Link must use credential-free HTTPS");
-            }
-        }
+        if (!data.url().isEmpty() && !safeLink(data.url()))
+            throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Link must use credential-free HTTPS");
         if (!data.imageKey().isEmpty() && !images.exists(data.imageKey()))
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Upload the image before attaching it");
         Copy en = copy(data.en(), book ? "Cover of " : "Photo of ");
         Copy pt = copy(data.pt(), book ? "Capa de " : "Foto de ");
         String slug = data.slug().isEmpty() ? uniqueSlug(slugify(en.title().isBlank() ? pt.title() : en.title()), id) : data.slug();
-        return new Details(slug, data.sectionId(), data.imageKey(), data.url(), data.rating(), data.bookGroup(),
+        return new Details(slug, data.sectionId(), data.imageKey(), data.url(), data.rating(), data.bookGroup(), data.readIn(),
                 data.subtitle().strip(), en, pt, data.googleBooksId() == null ? "" : data.googleBooksId());
+    }
+
+    private static boolean safeLink(String value) {
+        try {
+            URI uri = URI.create(value);
+            return "https".equalsIgnoreCase(uri.getScheme()) && uri.getHost() != null && uri.getRawUserInfo() == null;
+        } catch (IllegalArgumentException exception) {
+            return false;
+        }
     }
 
     private static Copy copy(Copy copy, String prefix) {
@@ -299,8 +330,10 @@ public class RecommendationService {
 
     private Section section(ResultSet row, int number) throws SQLException {
         return new Section(row.getLong("id"), row.getLong("version"), row.getInt("display_order"),
-                new SectionData(SectionKind.valueOf(row.getString("kind")), new SectionTitle(row.getString("en_title")),
-                        new SectionTitle(row.getString("pt_title"))), row.getLong("items"));
+                new SectionData(SectionKind.valueOf(row.getString("kind")),
+                        new SectionTitle(row.getString("en_title"), row.getString("en_description")),
+                        new SectionTitle(row.getString("pt_title"), row.getString("pt_description")),
+                        row.getString("slug"), row.getString("url")), row.getLong("items"));
     }
 
     private Draft find(long id, boolean lock) {
@@ -311,7 +344,7 @@ public class RecommendationService {
     private Draft draft(ResultSet row, int number) throws SQLException {
         Details stored = json.readValue(row.getString("payload"), Details.class);
         Details data = new Details(stored.slug(), row.getLong("section_id"), stored.imageKey(), stored.url(), stored.rating(),
-                stored.bookGroup(), stored.subtitle(), stored.en(), stored.pt(), stored.googleBooksId());
+                stored.bookGroup(), stored.readIn(), stored.subtitle(), stored.en(), stored.pt(), stored.googleBooksId());
         return new Draft(row.getLong("id"), row.getLong("version"), Status.valueOf(row.getString("status")),
                 row.getInt("display_order"), data, row.getTimestamp("updated_at").toInstant());
     }

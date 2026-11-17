@@ -1,7 +1,8 @@
 package dev.joaoabreu.portfolioapi.recommendations;
 
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.DecimalMax;
+import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
@@ -13,11 +14,17 @@ import java.util.List;
 public final class RecommendationModels {
     private RecommendationModels() {}
     public enum Status { DRAFT, ARCHIVED }
-    public enum SectionKind { BOOKS, ITEMS }
+    public enum SectionKind { BOOKS, ITEMS, LINK }
     public enum BookGroup { TECHNICAL, NON_TECHNICAL }
+    public enum ReadLanguage { PT, EN }
 
-    public record SectionTitle(@NotBlank @Size(max = 80) String title) {}
-    public record SectionData(@NotNull SectionKind kind, @NotNull @Valid SectionTitle en, @NotNull @Valid SectionTitle pt) {}
+    public record SectionTitle(@NotBlank @Size(max = 80) String title, @Size(max = 200) String description) {
+        public SectionTitle { description = description == null ? "" : description.strip(); title = title == null ? null : title.strip(); }
+    }
+    public record SectionData(@NotNull SectionKind kind, @NotNull @Valid SectionTitle en, @NotNull @Valid SectionTitle pt,
+            @Size(max = 60) @Pattern(regexp = "(?:|[a-z0-9]+(-[a-z0-9]+)*)") String slug, @Size(max = 1000) String url) {
+        public SectionData { slug = slug == null ? "" : slug; url = url == null ? "" : url.strip(); }
+    }
     public record SaveSection(@NotNull @Min(0) Long version, @NotNull @Valid SectionData data) {}
     public record Section(long id, long version, int displayOrder, SectionData data, long items) {}
     public record SectionOrder(@NotNull @Size(min = 1, max = 50) List<@NotNull Long> ids) {}
@@ -33,8 +40,9 @@ public final class RecommendationModels {
             @NotNull Long sectionId,
             @NotNull @Pattern(regexp = "(?:|[0-9a-f]{64}\\.png)") String imageKey,
             @NotNull @Size(max = 1000) String url,
-            @Min(0) @Max(5) int rating,
+            @DecimalMin("0") @DecimalMax("5") double rating,
             BookGroup bookGroup,
+            ReadLanguage readIn,
             @NotNull @Size(max = 150) String subtitle,
             @NotNull @Valid Copy en, @NotNull @Valid Copy pt,
             @Pattern(regexp = "(?:|[A-Za-z0-9_-]{1,100})") String googleBooksId) {}
@@ -43,7 +51,7 @@ public final class RecommendationModels {
     public record ChangeStatus(@NotNull @Min(0) Long version, @NotNull Status status) {}
     public record Draft(long id, long version, Status status, int displayOrder, Details data, Instant updatedAt) {}
     public record Publication(long recommendationId, String revision, long draftVersion, Details data) {}
-    public record PublicSection(long id, SectionKind kind, SectionTitle en, SectionTitle pt, List<Publication> items) {}
+    public record PublicSection(long id, String slug, SectionKind kind, String url, SectionTitle en, SectionTitle pt, List<Publication> items) {}
     public record Snapshot(int schemaVersion, List<PublicSection> sections) {}
     public record Summary(long recommendationId, String revision, long draftVersion) {}
 }
