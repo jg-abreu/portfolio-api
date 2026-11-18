@@ -34,3 +34,19 @@ The proxy must overwrite forwarded headers and route `/api/`, `/oauth2/`, `/logi
 Memory limits are initial budgets for a 2 GB VM: PostgreSQL 384 MiB and API 768 MiB, leaving room for the operating system, nginx and Docker. Measure under real workload before calling these limits sufficient. Logs rotate at three 10 MB files per service. The image tags receive updates; pull and validate updates deliberately.
 
 This configuration does not deploy the application, configure DNS or trigger static site rebuilds. Automatic publication and backup restore verification remain pending.
+
+## Operational notes
+
+These notes were previously in the README.
+
+- Optional features are enabled per environment, so a feature documented in the README is not necessarily switched on in production. The frontend's contact/visit flags are separate from the API flags.
+- For an isolated review database, configure `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME` and `SPRING_DATASOURCE_PASSWORD`, and disable Compose lifecycle integration with `SPRING_DOCKER_COMPOSE_ENABLED=false`. Never point integration tests or synthetic SMTP experiments at production.
+- Do not enable SMTP on a review database without inspecting its pending queue. Contact acceptance means the message was persisted, not that an email has arrived. SMTP delivery is at least once and may rarely produce a duplicate after an interrupted attempt.
+- Rate limits for contact and assistant are process-local, not distributed spending caps. Behind Cloudflare and nginx they key on the visitor's `CF-Connecting-IP` only through the trusted proxy chain (`network/ClientAddressKey`). `GET /api/instance` names the instance that served the request, and `/api/admin/profile-card` is the admin card editor.
+- A passing test suite does not certify live provider credentials, production routing or model factual accuracy. Separate local checks confirmed real SMTP delivery and real Google Books search; their scope is recorded in the module documentation. See [Java dependency monitoring](docs/dependency-security.md) for the Dependabot configuration.
+
+## Remaining release work
+
+Production needs persistent PostgreSQL and recommendation image storage, private environment configuration, trusted proxy validation, external backups and a proven restore procedure. A database/container volume alone is not a backup. Builds and tests should run outside the small serving VM. See [backup/restore](docs/backup-restore.md) for the isolated rehearsal and manual acceptance checklist.
+
+Still pending: receiving-workflow configuration and live automatic-publication validation, dedicated card deployment credential/visual approval/profile integration (one real public provider check passed), broader assistant/browser acceptance and deployment quota review (six live provider/proxy requests passed), production resource review beyond the completed local two-instance concurrency smoke, ongoing security monitoring and release-trigger review, external backup/restore validation and authorized joint V2 release. No load test should target the live site. Infrastructure changes and the release cutover follow João's manual workflow; this document does not perform or authorize deployment.
