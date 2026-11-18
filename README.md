@@ -128,4 +128,6 @@ Released under the [MIT License](LICENSE).
 
 **João Abreu**: back-end developer and Computer Science student in Rio de Janeiro, Brazil.
 
+Built with AI-assisted development (Claude Code). The architecture, design decisions and code reviews are mine.
+
 [Portfolio](https://joaoabreu.dev) · [GitHub](https://github.com/jg-abreu) · [LinkedIn](https://www.linkedin.com/in/jo%C3%A3o-abreuuu)
