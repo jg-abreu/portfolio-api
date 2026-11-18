@@ -1,106 +1,131 @@
 # Portfolio API
 
-Spring Boot backend for [João Abreu's portfolio](https://joaoabreu.dev), built with Java 21, Spring Security, PostgreSQL and Flyway. The companion [Astro site](https://github.com/jg-abreu/portfolio) remains static; this API provides the private workspace and interactive features.
+[![CodeQL](https://github.com/jg-abreu/portfolio-api/actions/workflows/codeql.yml/badge.svg)](https://github.com/jg-abreu/portfolio-api/actions/workflows/codeql.yml)
+![Java 21](https://img.shields.io/badge/Java-21-ED8B00?logo=openjdk&logoColor=white)
+![Spring Boot 4.1](https://img.shields.io/badge/Spring_Boot-4.1-6DB33F?logo=springboot&logoColor=white)
+![PostgreSQL 18](https://img.shields.io/badge/PostgreSQL-18-4169E1?logo=postgresql&logoColor=white)
+[![License: MIT](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
 
-**Live since the V2 cutover on 2026-11-14.** Two instances run behind nginx on the `portfolio-v2-2gb` Lightsail VM with PostgreSQL 18 (see [PRODUCTION.md](PRODUCTION.md) and the site's `deploy/README.md`). Optional features are enabled per environment, so a feature documented here is not necessarily switched on in production.
+A static portfolio is fast, but it can't take a message, count a visit or let me update a project without a redeploy.
+
+**Portfolio API** is the Spring Boot backend that adds those features to **[joaoabreu.dev](https://joaoabreu.dev)** while the [Astro site](https://github.com/jg-abreu/portfolio) stays static: a private admin to edit content without touching code, a contact inbox, a visit counter, an AI assistant that answers questions about me, and the live card on my [GitHub profile](https://github.com/jg-abreu).
+
+**In production since November 14, 2026** · 2 instances behind nginx and Cloudflare · 133 tests
+
+## Contents
+
+- [Features](#features)
+- [Architecture](#architecture)
+- [Tech stack](#tech-stack)
+- [Design decisions](#design-decisions)
+- [HTTP overview](#http-overview)
+- [Running locally](#running-locally)
+- [Testing](#testing)
+- [Deployment](#deployment)
 
 ## Features
 
-| Module | Behavior |
+| Module | What it does |
 | --- | --- |
-| Admin | GitHub OAuth with PKCE, numeric account-ID authorization, cookie sessions and CSRF-protected changes. |
-| Projects | Bilingual drafts and independently selected public copies, optimistic version checks and archive/restore. |
-| Recommendations | Bilingual drafts, categories, separate public copies, normalized private image uploads and Google Books edition selection. |
-| Contact | Persistence before acknowledgment, HTTP retry deduplication, private inbox, SMTP outbox with retries and independent 90-day retention. |
-| Visits | Approximate total, one counted visit per canonical IP per 30 minutes, HMAC identifiers and transactional concurrency handling. |
-| Assistant | Independent EN/PT questions against an authorized knowledge base, Gemini adapter, validated sources and bounded requests. |
-| Profile card | Cached SVG with GitHub contributions and latest public repository, background refresh and last-good fallback; layout, palette and text edited from the admin with draft and publish. |
+| **Admin** | Sign-in with GitHub (OAuth with PKCE), cookie sessions and CSRF-protected changes. Only my GitHub account is authorized. |
+| **Projects** | Bilingual (EN/PT) drafts, a separately chosen public copy, optimistic version checks and archive/restore. |
+| **Recommendations** | Bilingual drafts with categories, private image uploads and Google Books edition search. |
+| **Contact** | Messages are saved before the visitor gets a confirmation, then delivered by email through an outbox with retries. Old messages are deleted after 90 days. |
+| **Visits** | Approximate visit counter: one visit per visitor every 30 minutes, without storing raw IP addresses. |
+| **Assistant** | Answers questions about me in English or Portuguese, using only an approved knowledge base and citing its sources (Gemini). |
+| **Profile card** | The SVG card on my GitHub profile, refreshed in the background, cached and edited from the admin. |
 
-Saving a draft does not publish it. Selecting a public copy prepares the next static build; it records a durable request for the optional dispatcher, which triggers the site's `deploy.yml` on `main`; see [publication](docs/publication.md). The site reads selected projects/recommendations at build time and emits revision manifests. Failed configured sources stop the build so the prior deployed release can be retained.
+## Architecture
 
-## Local development
-
-Requirements: JDK 21, Docker with Compose, and Git. The Maven wrapper is included. Start Docker before running the application or integration tests.
-
-Configure these variables privately in the process environment or IDE run configuration:
-
-| Variable | Local purpose |
-| --- | --- |
-| `GITHUB_CLIENT_ID` | Client ID of a separate local GitHub OAuth application. |
-| `GITHUB_CLIENT_SECRET` | Its secret; never commit or paste into logs. |
-| `GITHUB_REDIRECT_URI` | Callback registered in that OAuth application, for example `http://localhost:4321/login/oauth2/code/github` when using the Astro proxy. |
-| `SPRING_PROFILES_ACTIVE` | `local` for local HTTP cookie settings and the Astro admin redirect. |
-
-The permitted admin defaults to João's numeric GitHub ID. If adapting this project, deliberately configure `PORTFOLIO_ADMIN_GITHUB_ID` for your own account rather than relying on a mutable username.
-
-Windows PowerShell:
-
-```powershell
-.\mvnw.cmd spring-boot:run
+```mermaid
+flowchart LR
+    V[Visitor] --> CF[Cloudflare]
+    CF --> N[nginx]
+    N --> S[Astro static site]
+    N --> A1[API instance 1]
+    N --> A2[API instance 2]
+    A1 --> DB[(PostgreSQL 18)]
+    A2 --> DB
+    A1 & A2 -.-> EXT[GitHub OAuth · Gemini · Google Books · SMTP]
 ```
 
-macOS/Linux:
+Content edited in the admin is published to the site at build time: selecting a public copy queues a rebuild of the Astro site, which reads the selected projects and recommendations from this API. If a configured source fails, the build stops and the previous release stays online. See [publication](docs/publication.md).
 
-```sh
-./mvnw spring-boot:run
-```
+## Tech stack
 
-With the `local` profile active, the bundled development Compose file provides PostgreSQL on host port 15432. Spring Boot's Docker Compose integration supplies its connection details. These development database settings are not production credentials. The API defaults to port 8080; the companion Astro dev server runs on 4321 and proxies the API/OAuth routes. Open the admin through Astro to preserve the intended same-origin flow.
-
-For an isolated review database, configure `SPRING_DATASOURCE_URL`, `SPRING_DATASOURCE_USERNAME` and `SPRING_DATASOURCE_PASSWORD`, and disable Compose lifecycle integration with `SPRING_DOCKER_COMPOSE_ENABLED=false`. Never point integration tests or synthetic SMTP experiments at production.
-
-## Optional integrations
-
-Contact intake, mail delivery, retention, visits and the profile card are disabled by default. Enable only the features intentionally configured for the environment.
-
-| Setting | Details |
+| Layer | Technologies |
 | --- | --- |
-| `PORTFOLIO_CONTACT_SUBMISSION_ENABLED` | Contact receipt endpoint; see [contact delivery](docs/contact-delivery.md). |
-| `PORTFOLIO_CONTACT_MAIL_ENABLED` | Scheduled outbox delivery; private SMTP configuration in [SMTP guide](docs/contact-smtp.md). |
-| `PORTFOLIO_CONTACT_RETENTION_ENABLED` | Independent 90-day message cleanup. |
-| `PORTFOLIO_VISITS_ENABLED` | Requires a private HMAC key and validated client-address mode; see [visits](docs/visits.md). |
-| `GOOGLE_BOOKS_API_KEY` | Server-side Books API key; see [recommendations](docs/recommendations.md). |
-| `GEMINI_API_KEY` | Private model credential; see [assistant](docs/assistant.md). Missing configuration leaves the assistant unavailable. |
-| `PORTFOLIO_PUBLICATION_ENABLED` | Optional dispatcher of the site's `deploy.yml` on `main`; requires a private `PUBLICATION_GITHUB_TOKEN`. |
-| `PORTFOLIO_PROFILE_CARD_ENABLED` | Enables the public SVG route. |
-| `PROFILE_CARD_GITHUB_TOKEN` | Minimal public-data GraphQL access for background card refresh; see [profile card](docs/profile-card.md). |
+| Backend | Java 21, Spring Boot 4.1 (Web MVC, Data JPA, Validation, Mail, Actuator), Spring Security with OAuth2 Client |
+| Database | PostgreSQL 18, Flyway migrations |
+| Integrations | GitHub OAuth and GraphQL, Google Gemini, Google Books, SMTP |
+| Testing | JUnit 5, Spring Security Test, Testcontainers |
+| Infrastructure | Docker Compose, nginx, Cloudflare, AWS Lightsail, CodeQL, Dependabot |
 
-The frontend's contact/visit flags are separate from API flags. Do not enable SMTP on a review database without inspecting its pending queue. Contact acceptance means the message was persisted, not that an email has arrived. SMTP delivery is at least once and may rarely produce a duplicate after an interrupted attempt.
+## Design decisions
+
+- **Drafts and public copies are separate.** Saving a draft never changes the live site; publishing is an explicit choice of which version visitors see.
+- **The admin is authorized by numeric GitHub ID, not username.** Usernames can change and be taken by someone else; the account ID can't.
+- **Contact messages are saved first, emailed later.** The visitor's confirmation means the message is in the database. Email goes through an outbox with retries, and an `Idempotency-Key` stops a retried request from creating a duplicate.
+- **Visits are counted without storing IP addresses.** The API keeps only an HMAC of the visitor's address, and behind Cloudflare it trusts `CF-Connecting-IP` only when the request comes through the known proxy chain.
+- **Visitors never trigger GitHub requests.** The profile card is refreshed in the background and served from cache with ETags; if a refresh fails, the last good version stays online.
+- **Everything is denied by default.** Only the routes listed below are open, and every optional feature (contact, email, visits, assistant, card) is off until configured for that environment.
 
 ## HTTP overview
 
 | Route | Access |
 | --- | --- |
-| `GET /actuator/health` | Public health status. |
-| `GET /api/projects`, `/api/recommendations` | Selected public copies for static builds. |
-| `GET /api/recommendation-images/{key}` | Only images referenced by selected public recommendations. |
-| `GET /api/auth/csrf` | Same-session CSRF token for protected browser mutations. |
-| `/api/admin/**` | Authorized admin session; mutations also require CSRF. |
-| `POST /api/auth/logout` | Invalidates the session; requires CSRF. |
-| `POST /api/contact` | Optional receipt endpoint with CSRF and UUID `Idempotency-Key`. |
-| `GET /api/visits`, `POST /api/visits` | Optional counter; registration requires CSRF. |
-| `POST /api/assistant/messages` | Public, bounded and rate limited; exempt from CSRF. |
-| `GET /api/profile-card.svg` | Optional cached image with ETag/304; no visitor-triggered GitHub request. |
-| `/api/admin/profile-card` | Card editor: read, save draft, publish and preview (admin only). |
+| `GET /actuator/health` | Public health status |
+| `GET /api/projects`, `/api/recommendations` | Selected public copies, read by the site at build time |
+| `GET /api/recommendation-images/{key}` | Only images used by published recommendations |
+| `GET /api/auth/csrf` | CSRF token for browser changes |
+| `/api/admin/**` | Signed-in admin; changes also require CSRF |
+| `POST /api/auth/logout` | Ends the session; requires CSRF |
+| `POST /api/contact` | Contact form, with CSRF and a UUID `Idempotency-Key` |
+| `GET /api/visits`, `POST /api/visits` | Visit counter; registering requires CSRF |
+| `POST /api/assistant/messages` | Public assistant, rate limited |
+| `GET /api/profile-card.svg` | Cached profile card with ETag/304 |
 
-Other routes are denied by default. Rate limits for contact and assistant are process-local, not distributed spending caps. Behind Cloudflare and nginx they key on the visitor's `CF-Connecting-IP` only through the trusted proxy chain (`network/ClientAddressKey`); see [assistant](docs/assistant.md). `GET /api/instance` names the instance that served the request.
+## Running locally
 
-## Tests
+Requirements: JDK 21 and Docker with Compose (the Maven wrapper is included).
 
-```powershell
-.\mvnw.cmd test
+1. Create a GitHub OAuth app for local development and set these environment variables:
+
+   | Variable | Value |
+   | --- | --- |
+   | `GITHUB_CLIENT_ID` / `GITHUB_CLIENT_SECRET` | From your local OAuth app |
+   | `GITHUB_REDIRECT_URI` | `http://localhost:4321/login/oauth2/code/github` |
+   | `SPRING_PROFILES_ACTIVE` | `local` |
+   | `PORTFOLIO_ADMIN_GITHUB_ID` | Your numeric GitHub ID, if you're adapting the project |
+
+2. Start Docker and run the API. With the `local` profile, Spring Boot starts PostgreSQL from `compose.yaml` on port 15432.
+
+   ```sh
+   ./mvnw spring-boot:run        # Windows: .\mvnw.cmd spring-boot:run
+   ```
+
+3. Run the [Astro site](https://github.com/jg-abreu/portfolio) on port 4321. It proxies the API and OAuth routes, so open the admin through the site.
+
+Optional features are switched on with environment variables; each one is documented in [`docs/`](docs): [contact](docs/contact-delivery.md), [SMTP](docs/contact-smtp.md), [visits](docs/visits.md), [recommendations](docs/recommendations.md), [assistant](docs/assistant.md), [publication](docs/publication.md) and [profile card](docs/profile-card.md).
+
+## Testing
+
+```sh
+./mvnw test
 ```
 
-The complete suite passed **133 tests** on 2026-11-13, with zero failures, errors or skips. PostgreSQL integration tests use disposable Testcontainers databases; SMTP, Gemini, Books and card-provider responses are simulated in automated tests. A passing suite does not certify live provider credentials, production routing or model factual accuracy.
+**133 tests** covering security, sessions and CSRF, HTTP limits, concurrent counter updates, stale draft versions, publication, image handling, the email outbox, scheduled cleanup and the profile card cache. Database tests run against real PostgreSQL containers with Testcontainers; external services (SMTP, Gemini, Google Books, GitHub) are simulated.
 
-Tests cover security/session/CSRF, HTTP limits, concurrent counter updates, stale draft versions, separate publication copies, image normalization/integrity, outbox leases/retries, scheduling/retention and SVG cache/fallback behavior. Separate local checks confirmed real SMTP delivery to both configured recipients and real Google Books search; their exact scope is recorded in the module documentation.
+## Deployment
 
-See [Java dependency monitoring](docs/dependency-security.md) for the prepared Dependabot configuration and the distinction between version checks and completed security scans.
+The production setup (Docker Compose on a 2 GB AWS Lightsail VM, nginx, two API instances and PostgreSQL) is documented in [PRODUCTION.md](PRODUCTION.md), with [backup and restore](docs/backup-restore.md) and the [two-instance test](docs/local-two-instance.md).
 
-See [the local two-instance exercise](docs/local-two-instance.md) for shared-counter concurrency results and the process-local session/failover limitation.
+## License
 
-## Operations and remaining release work
+Released under the [MIT License](LICENSE).
 
-See [PRODUCTION.md](PRODUCTION.md) for the existing deployment guide and [backup/restore](docs/backup-restore.md) for the isolated rehearsal and manual acceptance checklist. Production needs persistent PostgreSQL and recommendation image storage, private environment configuration, trusted proxy validation, external backups and a proven restore procedure. A database/container volume alone is not a backup. Builds and tests should run outside the small serving VM.
+## Author
 
-Still pending: receiving-workflow configuration and live automatic-publication validation, dedicated card deployment credential/visual approval/profile integration (one real public provider check passed), broader assistant/browser acceptance and deployment quota review (six live provider/proxy requests passed), production resource review beyond the completed local two-instance concurrency smoke, ongoing security monitoring and release-trigger review, external backup/restore validation and authorized joint V2 release. No load test should target the live site. Infrastructure changes and the release cutover follow João's manual workflow; this README does not perform or authorize deployment.
+**João Abreu**: back-end developer and Computer Science student in Rio de Janeiro, Brazil.
+
+[Portfolio](https://joaoabreu.dev) · [GitHub](https://github.com/jg-abreu) · [LinkedIn](https://www.linkedin.com/in/jo%C3%A3o-abreuuu)
