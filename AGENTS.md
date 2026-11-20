@@ -4,7 +4,7 @@ Project rules for Codex in this repository. Machine-specific instructions live i
 
 ## Project
 
-Back-end of João Abreu's portfolio (https://joaoabreu.dev), used by the static Astro site in `jg-abreu/portfolio`. It serves the private admin (GitHub login, projects, recommendations, profile card, contact inbox), the public data read at build time, the visit counter, the contact form, the profile-card SVG and the AI assistant. Live since the V2 cutover on 2026-11-14.
+Back-end of João Abreu's portfolio (https://joaoabreu.dev), used by the static Astro site in `jg-abreu/portfolio`. It serves the private admin (GitHub login, projects, recommendations, profile card, links page, contact inbox), the public data read at build time, the visit counter, the contact form, the profile-card SVG and the AI assistant. Live since the V2 cutover on 2026-11-14.
 
 - **Stack:** Java 21, Spring Boot 4.1 (Web MVC, Security with OAuth2 client, Data JPA, Validation, Actuator, Mail), PostgreSQL 18 with Flyway, Maven wrapper.
 - **External services:** GitHub (OAuth, profile data, workflow dispatch), Google Gemini (assistant), Google Books (recommendations), SMTP (contact delivery).
@@ -32,6 +32,7 @@ src/main/java/dev/joaoabreu/portfolioapi/
   contact/          contact submission (idempotent), private inbox, SMTP outbox worker, 90-day retention
   visits/           approximate visit counter with HMAC identifiers and trusted client-address resolution
   profile/          cached GitHub profile-card SVG and its admin editor (draft and publish)
+  links/            link-in-bio page: draft, publish and the public /api/link-page read at build time
   assistant/        AI assistant: public v1 endpoint, request filter (size, media type, rate limits),
                     knowledge resources, Gemini adapter, problem responses
   network/          ClientAddressKey: visitor address through the trusted nginx → Cloudflare chain
