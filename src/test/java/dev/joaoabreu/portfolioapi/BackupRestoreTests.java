@@ -29,7 +29,7 @@ class BackupRestoreTests {
         try (var source = database("backup_source"); var target = database("backup_restored")) {
             source.start(); target.start();
             var migration = flyway(source);
-            assertEquals(12, migration.migrate().migrationsExecuted);
+            assertEquals(13, migration.migrate().migrationsExecuted);
 
             Path liveImages = temporary.resolve("source-images");
             var images = new RecommendationImages(liveImages.toString());
@@ -49,6 +49,7 @@ class BackupRestoreTests {
                 sql.executeUpdate("INSERT INTO contact_messages(name,email,message,submission_key) VALUES ('Synthetic restore test','synthetic@example.invalid','Synthetic message before backup','22345678-1234-4234-8234-123456789abc')");
                 sql.executeUpdate("UPDATE visit_counter SET total=17 WHERE id=1");
                 sql.executeUpdate("UPDATE profile_card_settings SET published='{\"synthetic\":\"before backup\"}', version=3 WHERE id=1");
+                sql.executeUpdate("UPDATE link_page_settings SET published='{\"synthetic\":\"links before backup\"}', version=2 WHERE id=1");
                 sql.executeUpdate("UPDATE publication_requests SET requested_generation=4, dispatched_generation=2");
                 sql.executeUpdate("INSERT INTO recommendation_sections(id,kind,en_title,pt_title,slug) VALUES (1,'BOOKS','Books','Livros','books')");
                 try (var draft = connection.prepareStatement("INSERT INTO recommendation_drafts(slug,payload,section_id) VALUES ('synthetic-restore',?,1) RETURNING id")) {
@@ -115,6 +116,10 @@ class BackupRestoreTests {
                 try (var result = sql.executeQuery("SELECT published, version FROM profile_card_settings WHERE id=1")) {
                     assertTrue(result.next()); assertEquals("{\"synthetic\":\"before backup\"}", result.getString(1));
                     assertEquals(3, result.getLong(2));
+                }
+                try (var result = sql.executeQuery("SELECT published, version FROM link_page_settings WHERE id=1")) {
+                    assertTrue(result.next()); assertEquals("{\"synthetic\":\"links before backup\"}", result.getString(1));
+                    assertEquals(2, result.getLong(2));
                 }
                 try (var result = sql.executeQuery("SELECT requested_generation,dispatched_generation FROM publication_requests WHERE id=1")) {
                     assertTrue(result.next()); assertEquals(4, result.getLong(1)); assertEquals(2, result.getLong(2));
