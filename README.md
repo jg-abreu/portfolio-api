@@ -1,5 +1,8 @@
 # Portfolio API
 
+> [!IMPORTANT]
+> **This repository is archived.** The API now lives in [`api/`](https://github.com/jg-abreu/portfolio/tree/main/api) of [jg-abreu/portfolio](https://github.com/jg-abreu/portfolio), next to the site, with its commit history. Issues and changes go there.
+
 [![CodeQL](https://github.com/jg-abreu/portfolio-api/actions/workflows/codeql.yml/badge.svg)](https://github.com/jg-abreu/portfolio-api/actions/workflows/codeql.yml)
 ![Java 21](https://img.shields.io/badge/Java-21-ED8B00?logo=openjdk&logoColor=white)
 ![Spring Boot 4.1](https://img.shields.io/badge/Spring_Boot-4.1-6DB33F?logo=springboot&logoColor=white)
